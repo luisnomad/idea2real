@@ -14,6 +14,8 @@ import os
 import requests
 import fal_client
 
+HTTP_TIMEOUT = 120
+
 
 # High-contrast prompt components optimized for 3D reconstruction
 OBJECT_DESC = (
@@ -59,7 +61,8 @@ def generate_individual_views(output_dir: str):
         )
 
         image_url = result["images"][0]["url"]
-        img_response = requests.get(image_url)
+        img_response = requests.get(image_url, timeout=HTTP_TIMEOUT)
+        img_response.raise_for_status()
         filepath = os.path.join(output_dir, f"{view_name}.png")
         with open(filepath, "wb") as f:
             f.write(img_response.content)
@@ -91,7 +94,8 @@ def generate_grid(output_dir: str):
     )
 
     image_url = result["images"][0]["url"]
-    img_response = requests.get(image_url)
+    img_response = requests.get(image_url, timeout=HTTP_TIMEOUT)
+    img_response.raise_for_status()
     filepath = os.path.join(output_dir, "grid-4k-hc.png")
     with open(filepath, "wb") as f:
         f.write(img_response.content)

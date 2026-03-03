@@ -70,6 +70,14 @@ def image_to_base64_raw(filepath):
         return base64.b64encode(f.read()).decode("utf-8")
 
 
+def short_error(err, max_len=120):
+    """Return a concise, user-facing error message."""
+    text = str(err).strip() if err is not None else "Unknown error"
+    if not text:
+        text = "Unknown error"
+    return text[:max_len]
+
+
 def api_request(url, data=None, headers=None, method="POST"):
     """Make an HTTP request and return parsed JSON."""
     if data is not None:
@@ -78,18 +86,39 @@ def api_request(url, data=None, headers=None, method="POST"):
     req.add_header("Content-Type", "application/json")
     try:
         with urlopen(req, timeout=120) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            payload = resp.read().decode("utf-8")
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError as e:
+            raise RuntimeError("API returned invalid JSON response") from e
     except HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"API error {e.code}: {body}")
+        raise RuntimeError(f"API error {e.code}: {body[:300]}") from e
+    except URLError as e:
+        reason = getattr(e, "reason", e)
+        raise RuntimeError(f"Network error: {reason}") from e
+    except OSError as e:
+        raise RuntimeError(f"Network I/O error: {e}") from e
 
 
 def download_file(url, dest):
     """Download a file from URL to local path."""
     req = Request(url)
-    with urlopen(req, timeout=300) as resp:
-        with open(dest, "wb") as f:
-            f.write(resp.read())
+    try:
+        with urlopen(req, timeout=300) as resp:
+            status = getattr(resp, "status", 200)
+            if status >= 400:
+                raise RuntimeError(f"Download failed with status {status}")
+            with open(dest, "wb") as f:
+                f.write(resp.read())
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Download failed ({e.code}): {body[:200]}") from e
+    except URLError as e:
+        reason = getattr(e, "reason", e)
+        raise RuntimeError(f"Download network error: {reason}") from e
+    except OSError as e:
+        raise RuntimeError(f"Download I/O error: {e}") from e
     return dest
 
 
@@ -172,27 +201,28 @@ class FalClient:
         url = f"{FAL_BASE}/{model_id}"
         headers = {"Authorization": f"Key {api_key}"}
         result = api_request(url, data=payload, headers=headers)
-        if "request_id" in result:
+        if isinstance(result, dict) and "request_id" in result:
             return result["request_id"]
-        return result
+        if isinstance(result, dict):
+            return result
+        raise RuntimeError(f"Unexpected submission response type: {type(result).__name__}")
 
     @staticmethod
     def poll(model_id, request_id, api_key):
         """Poll for job completion. Returns result dict or None if still processing."""
         url = f"{FAL_BASE}/{model_id}/requests/{request_id}/status"
         headers = {"Authorization": f"Key {api_key}"}
-        try:
-            result = api_request(url, headers=headers, method="GET", data=None)
-        except Exception:
-            return None
+        result = api_request(url, headers=headers, method="GET", data=None)
 
-        status = result.get("status", "")
+        status = str(result.get("status", "")).upper()
         if status == "COMPLETED":
             result_url = f"{FAL_BASE}/{model_id}/requests/{request_id}"
             return api_request(result_url, headers=headers, method="GET", data=None)
         elif status in ("FAILED", "CANCELLED"):
             raise RuntimeError(f"fal.ai job {status}: {result.get('error', 'unknown')}")
-        return None
+        elif status in ("IN_QUEUE", "IN_PROGRESS", "PENDING"):
+            return None
+        raise RuntimeError(f"Unexpected fal.ai job status: {status or 'missing'}")
 
     @staticmethod
     def generate_image(prompt, api_key, model="NANO_BANANA_2", reference_images=None,
@@ -209,20 +239,28 @@ class FalClient:
             if len(reference_images) > 1:
                 payload["reference_images"] = reference_images[1:]
 
+        set_status("Submitting image generation request...")
+        set_progress(5)
         submission = FalClient.submit(model_id, payload, api_key)
 
         if isinstance(submission, dict) and "images" in submission:
             return submission["images"][0]["url"]
 
         request_id = submission
+        if not isinstance(request_id, str) or not request_id:
+            raise RuntimeError("Missing request ID from image generation submission")
         for attempt in range(MAX_POLL_ATTEMPTS):
             time.sleep(POLL_INTERVAL)
-            set_progress(int((attempt + 1) / MAX_POLL_ATTEMPTS * 100))
+            pct = 10 + int((attempt + 1) / MAX_POLL_ATTEMPTS * 85)
+            set_progress(min(pct, 95))
+            set_status(f"Generating image... {min(pct, 95)}%")
             result = FalClient.poll(model_id, request_id, api_key)
             if result is not None:
-                return result["images"][0]["url"]
+                if "images" in result and result["images"]:
+                    return result["images"][0]["url"]
+                raise RuntimeError(f"Unexpected image response format: {list(result.keys())}")
 
-        raise RuntimeError("Timed out waiting for image generation")
+        raise TimeoutError("Timed out waiting for image generation")
 
     @staticmethod
     def generate_3d(image_path, api_key, face_count=500000, enable_pbr=False):
@@ -234,12 +272,18 @@ class FalClient:
             "enable_pbr": enable_pbr,
             "generate_type": generate_type,
         }
+        set_status("Submitting 3D generation request...")
+        set_progress(5)
         submission = FalClient.submit(FAL_HUNYUAN, payload, api_key)
 
         if isinstance(submission, dict) and "model_mesh" in submission:
             return submission["model_mesh"]["url"]
+        if isinstance(submission, dict) and "mesh" in submission and "url" in submission["mesh"]:
+            return submission["mesh"]["url"]
 
         request_id = submission
+        if not isinstance(request_id, str) or not request_id:
+            raise RuntimeError("Missing request ID from fal.ai submission")
         # Save request_id so we can resume if polling times out
         _save_request_id(request_id)
         return FalClient._poll_3d_result(request_id, api_key)
@@ -252,12 +296,21 @@ class FalClient:
     @staticmethod
     def _poll_3d_result(request_id, api_key):
         """Poll for 3D generation result. Returns mesh URL or raises on timeout."""
+        transient_errors = 0
         for attempt in range(MAX_POLL_ATTEMPTS):
             time.sleep(POLL_INTERVAL)
             pct = int((attempt + 1) / MAX_POLL_ATTEMPTS * 100)
             set_progress(pct)
             set_status(f"Generating 3D model... {pct}%")
-            result = FalClient.poll(FAL_HUNYUAN, request_id, api_key)
+            try:
+                result = FalClient.poll(FAL_HUNYUAN, request_id, api_key)
+                transient_errors = 0
+            except RuntimeError as e:
+                transient_errors += 1
+                if transient_errors >= 3:
+                    raise RuntimeError(f"Polling failed repeatedly: {short_error(e)}")
+                set_status(f"Polling issue ({transient_errors}/3): {short_error(e)}. Retrying...")
+                continue
             if result is not None:
                 if "model_mesh" in result:
                     return result["model_mesh"]["url"]
@@ -629,12 +682,15 @@ class NB3DP_OT_GenerateImage(bpy.types.Operator):
 
         props.is_processing = True
         props.progress_percent = 0
-        props.status_message = "Generating image..."
+        props.status_message = "Preparing image generation..."
 
         ref_images = []
         for ref in props.reference_images:
             if ref.filepath and os.path.exists(bpy.path.abspath(ref.filepath)):
                 ref_images.append(image_to_base64(ref.filepath))
+        skipped_refs = len(props.reference_images) - len(ref_images)
+        if skipped_refs > 0:
+            self.report({'WARNING'}, f"Skipped {skipped_refs} missing reference image(s)")
 
         thread = threading.Thread(
             target=self._generate,
@@ -654,6 +710,8 @@ class NB3DP_OT_GenerateImage(bpy.types.Operator):
                 aspect_ratio=aspect_ratio,
             )
 
+            set_status("Downloading generated image...")
+            set_progress(97)
             tmp_dir = tempfile.mkdtemp(prefix="nb3dp_")
             dest = os.path.join(tmp_dir, "generated.png")
             download_file(image_url, dest)
@@ -676,8 +734,12 @@ class NB3DP_OT_GenerateImage(bpy.types.Operator):
 
             bpy.app.timers.register(_load_preview, first_interval=0.0)
 
+        except TimeoutError:
+            set_status("Image generation timed out. Please try again.")
+            set_processing(False)
         except Exception as e:
-            set_status(f"Error: {str(e)[:100]}")
+            set_status(f"Image generation failed: {short_error(e)}")
+            set_progress(0)
             set_processing(False)
 
 
@@ -744,32 +806,41 @@ class NB3DP_OT_Generate3D(bpy.types.Operator):
                 face_count=face_count,
                 enable_pbr=enable_pbr,
             )
+            set_status("3D generation finished. Downloading mesh...")
+            set_progress(97)
             NB3DP_OT_Generate3D._download_and_import(mesh_url)
 
-        except TimeoutError as e:
+        except TimeoutError:
             # Job is still running on fal.ai — let user resume
             set_status(f"Timed out — job still running on fal.ai. Click 'Resume Polling'.")
             set_processing(False)
         except Exception as e:
-            set_status(f"Error: {str(e)[:100]}")
+            set_status(f"3D generation failed: {short_error(e)}")
+            set_progress(0)
             set_processing(False)
 
     @staticmethod
     def _resume_3d(request_id, api_key):
         try:
+            set_status("Resuming poll on fal.ai request...")
             mesh_url = FalClient.resume_3d(request_id, api_key)
+            set_status("Request completed. Downloading mesh...")
+            set_progress(97)
             NB3DP_OT_Generate3D._download_and_import(mesh_url)
 
         except TimeoutError:
             set_status(f"Still waiting — job running on fal.ai. Click 'Resume Polling' again.")
             set_processing(False)
         except Exception as e:
-            set_status(f"Error: {str(e)[:100]}")
+            set_status(f"Resume failed: {short_error(e)}")
+            set_progress(0)
             set_processing(False)
 
     @staticmethod
     def _download_and_import(mesh_url):
         """Download mesh from URL and import into Blender."""
+        set_status("Downloading generated mesh...")
+        set_progress(98)
         tmp_dir = tempfile.mkdtemp(prefix="nb3dp_mesh_")
         ext = ".glb"
         if ".obj" in mesh_url.lower():
@@ -788,6 +859,7 @@ class NB3DP_OT_Generate3D(bpy.types.Operator):
             props.last_request_id = ""  # Clear — job is done
 
             try:
+                props.status_message = f"Importing mesh ({os.path.basename(mesh_path)})..."
                 if ext == ".glb":
                     bpy.ops.import_scene.gltf(filepath=mesh_path)
                 elif ext == ".obj":
@@ -801,7 +873,7 @@ class NB3DP_OT_Generate3D(bpy.types.Operator):
                 stats = mesh_stats(obj) if obj else "N/A"
                 props.status_message = f"3D imported ({stats}). Run cleanup next."
             except Exception as e:
-                props.status_message = f"Import error: {str(e)[:80]}"
+                props.status_message = f"Import failed: {short_error(e)}"
 
             props.is_processing = False
             props.progress_percent = 100
@@ -859,59 +931,87 @@ class NB3DP_OT_AutoCleanup(bpy.types.Operator):
             self.report({'ERROR'}, "Select a mesh object first")
             return {'CANCELLED'}
 
-        props.status_message = "Running cleanup..."
+        props.is_processing = True
+        props.progress_percent = 0
+        props.status_message = "Cleanup: preparing object..."
+        redraw_ui()
 
-        # ---- Phase 1: Geometry repair ----
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
+        try:
+            # ---- Phase 1: Geometry repair ----
+            props.status_message = "Cleanup: repairing geometry..."
+            props.progress_percent = 15
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='SELECT')
 
-        # Remove doubles with tight threshold
-        bpy.ops.mesh.remove_doubles(threshold=0.0001)
+            # Remove doubles with tight threshold
+            bpy.ops.mesh.remove_doubles(threshold=0.0001)
 
-        # Fix normals
-        bpy.ops.mesh.normals_make_consistent(inside=False)
+            # Fix normals
+            bpy.ops.mesh.normals_make_consistent(inside=False)
 
-        # Remove loose geometry
-        bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
+            # Remove loose geometry
+            bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
 
-        bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.mode_set(mode='OBJECT')
 
-        before_stats = mesh_stats(obj)
+            before_stats = mesh_stats(obj)
 
-        # ---- Phase 2: Decimate if needed ----
-        face_count = len(obj.data.polygons)
-        if face_count > 150000:
-            target_faces = 100000
-            ratio = target_faces / face_count
-            mod = obj.modifiers.new(name="Decimate_Print", type='DECIMATE')
-            mod.ratio = ratio
-            bpy.ops.object.modifier_apply(modifier=mod.name)
+            # ---- Phase 2: Decimate if needed ----
+            props.status_message = "Cleanup: checking face count..."
+            props.progress_percent = 35
+            face_count = len(obj.data.polygons)
+            if face_count > 150000:
+                target_faces = 100000
+                ratio = target_faces / face_count
+                mod = obj.modifiers.new(name="Decimate_Print", type='DECIMATE')
+                mod.ratio = ratio
+                bpy.ops.object.modifier_apply(modifier=mod.name)
 
-        # ---- Phase 3: Flatten base ----
-        self._flatten_base(obj)
+            # ---- Phase 3: Flatten base ----
+            props.status_message = "Cleanup: flattening base..."
+            props.progress_percent = 55
+            self._flatten_base(obj)
 
-        # ---- Phase 4: Scale by longest dimension ----
-        longest = max(obj.dimensions.x, obj.dimensions.y, obj.dimensions.z)
-        if longest > 0:
-            target_m = props.target_size_mm / 1000.0
-            scale_factor = target_m / longest
-            obj.scale *= scale_factor
-            bpy.ops.object.transform_apply(scale=True)
+            # ---- Phase 4: Scale by longest dimension ----
+            props.status_message = "Cleanup: scaling model..."
+            props.progress_percent = 70
+            longest = max(obj.dimensions.x, obj.dimensions.y, obj.dimensions.z)
+            if longest > 0:
+                target_m = props.target_size_mm / 1000.0
+                scale_factor = target_m / longest
+                obj.scale *= scale_factor
+                bpy.ops.object.transform_apply(scale=True)
 
-        # ---- Phase 5: Technology-specific cleanup ----
-        if props.print_tech == "FDM":
-            self._cleanup_fdm(context, obj, props)
-        elif props.print_tech == "RESIN":
-            self._cleanup_resin(context, obj, props)
-        elif props.print_tech == "SLS":
-            self._cleanup_sls(context, obj, props)
+            # ---- Phase 5: Technology-specific cleanup ----
+            props.status_message = f"Cleanup: applying {props.print_tech} settings..."
+            props.progress_percent = 85
+            if props.print_tech == "FDM":
+                self._cleanup_fdm(context, obj, props)
+            elif props.print_tech == "RESIN":
+                self._cleanup_resin(context, obj, props)
+            elif props.print_tech == "SLS":
+                self._cleanup_sls(context, obj, props)
 
-        after_stats = mesh_stats(obj)
-        dims = obj.dimensions
-        dims_mm = f"{dims.x * 1000:.1f} x {dims.y * 1000:.1f} x {dims.z * 1000:.1f} mm"
-        props.status_message = f"Cleanup done ({props.print_tech}). {after_stats}. {dims_mm}"
-        self.report({'INFO'}, f"Before: {before_stats} | After: {after_stats} | Size: {dims_mm}")
-        return {'FINISHED'}
+            after_stats = mesh_stats(obj)
+            dims = obj.dimensions
+            dims_mm = f"{dims.x * 1000:.1f} x {dims.y * 1000:.1f} x {dims.z * 1000:.1f} mm"
+            props.progress_percent = 100
+            props.status_message = f"Cleanup done ({props.print_tech}). {after_stats}. {dims_mm}"
+            self.report({'INFO'}, f"Before: {before_stats} | After: {after_stats} | Size: {dims_mm}")
+            return {'FINISHED'}
+        except Exception as e:
+            props.status_message = f"Cleanup failed: {short_error(e)}"
+            props.progress_percent = 0
+            self.report({'ERROR'}, f"Cleanup failed: {short_error(e)}")
+            return {'CANCELLED'}
+        finally:
+            try:
+                if context.active_object and context.active_object.mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode='OBJECT')
+            except Exception:
+                pass
+            props.is_processing = False
+            redraw_ui()
 
     def _flatten_base(self, obj):
         """Push all vertices within 5mm of the bottom to the minimum Z."""
@@ -1014,36 +1114,59 @@ class NB3DP_OT_ExportSTL(bpy.types.Operator):
             self.report({'ERROR'}, "Select a mesh object first")
             return {'CANCELLED'}
 
-        for mod in obj.modifiers:
-            try:
-                bpy.ops.object.modifier_apply(modifier=mod.name)
-            except:
-                pass
+        props.is_processing = True
+        props.progress_percent = 0
+        props.status_message = "Export: preparing object..."
+        redraw_ui()
 
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        try:
+            bpy.ops.object.select_all(action='DESELECT')
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
 
-        export_dir = bpy.path.abspath(props.export_path)
-        if not os.path.isdir(export_dir):
-            export_dir = tempfile.mkdtemp(prefix="nb3dp_export_")
+            props.status_message = "Export: applying modifiers..."
+            props.progress_percent = 25
+            for mod in list(obj.modifiers):
+                try:
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+                except Exception:
+                    self.report({'WARNING'}, f"Could not apply modifier: {mod.name}")
 
-        filename = f"{obj.name}_print_ready.stl"
-        filepath = os.path.join(export_dir, filename)
+            props.status_message = "Export: applying transforms..."
+            props.progress_percent = 55
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
 
-        bpy.ops.object.select_all(action='DESELECT')
-        obj.select_set(True)
+            export_dir = bpy.path.abspath(props.export_path)
+            if not os.path.isdir(export_dir):
+                export_dir = tempfile.mkdtemp(prefix="nb3dp_export_")
+                self.report({'WARNING'}, f"Export path not found. Using temporary folder: {export_dir}")
 
-        bpy.ops.wm.stl_export(
-            filepath=filepath,
-            export_selected_objects=True,
-            apply_modifiers=True,
-        )
+            filename = f"{obj.name}_print_ready.stl"
+            filepath = os.path.join(export_dir, filename)
 
-        dims = obj.dimensions
-        dims_mm = f"{dims.x * 1000:.1f} x {dims.y * 1000:.1f} x {dims.z * 1000:.1f} mm"
-        stats = mesh_stats(obj)
-        props.status_message = f"Exported: {filename} ({stats}, {dims_mm})"
-        self.report({'INFO'}, f"STL exported to {filepath}")
-        return {'FINISHED'}
+            props.status_message = "Export: writing STL..."
+            props.progress_percent = 85
+            bpy.ops.wm.stl_export(
+                filepath=filepath,
+                export_selected_objects=True,
+                apply_modifiers=True,
+            )
+
+            dims = obj.dimensions
+            dims_mm = f"{dims.x * 1000:.1f} x {dims.y * 1000:.1f} x {dims.z * 1000:.1f} mm"
+            stats = mesh_stats(obj)
+            props.progress_percent = 100
+            props.status_message = f"Exported: {filename} ({stats}, {dims_mm})"
+            self.report({'INFO'}, f"STL exported to {filepath}")
+            return {'FINISHED'}
+        except Exception as e:
+            props.status_message = f"Export failed: {short_error(e)}"
+            props.progress_percent = 0
+            self.report({'ERROR'}, f"Export failed: {short_error(e)}")
+            return {'CANCELLED'}
+        finally:
+            props.is_processing = False
+            redraw_ui()
 
 
 class NB3DP_OT_QuickExport(bpy.types.Operator):
@@ -1057,35 +1180,58 @@ class NB3DP_OT_QuickExport(bpy.types.Operator):
             self.report({'ERROR'}, "Select a mesh object first")
             return {'CANCELLED'}
 
-        for mod in obj.modifiers:
-            try:
-                bpy.ops.object.modifier_apply(modifier=mod.name)
-            except:
-                pass
-
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-
-        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-        if not os.path.isdir(desktop):
-            desktop = os.path.expanduser("~")
-
-        filepath = os.path.join(desktop, f"{obj.name}_print_ready.stl")
-
-        bpy.ops.object.select_all(action='DESELECT')
-        obj.select_set(True)
-        bpy.ops.wm.stl_export(
-            filepath=filepath,
-            export_selected_objects=True,
-            apply_modifiers=True,
-        )
-
-        dims = obj.dimensions
-        dims_mm = f"{dims.x * 1000:.1f} x {dims.y * 1000:.1f} x {dims.z * 1000:.1f} mm"
-        stats = mesh_stats(obj)
         props = get_props()
-        props.status_message = f"Exported to Desktop! ({stats}, {dims_mm})"
-        self.report({'INFO'}, f"STL exported to {filepath}")
-        return {'FINISHED'}
+        props.is_processing = True
+        props.progress_percent = 0
+        props.status_message = "Quick Export: preparing object..."
+        redraw_ui()
+
+        try:
+            bpy.ops.object.select_all(action='DESELECT')
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+
+            props.status_message = "Quick Export: applying modifiers..."
+            props.progress_percent = 25
+            for mod in list(obj.modifiers):
+                try:
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+                except Exception:
+                    self.report({'WARNING'}, f"Could not apply modifier: {mod.name}")
+
+            props.status_message = "Quick Export: applying transforms..."
+            props.progress_percent = 55
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            if not os.path.isdir(desktop):
+                desktop = os.path.expanduser("~")
+
+            filepath = os.path.join(desktop, f"{obj.name}_print_ready.stl")
+
+            props.status_message = "Quick Export: writing STL..."
+            props.progress_percent = 85
+            bpy.ops.wm.stl_export(
+                filepath=filepath,
+                export_selected_objects=True,
+                apply_modifiers=True,
+            )
+
+            dims = obj.dimensions
+            dims_mm = f"{dims.x * 1000:.1f} x {dims.y * 1000:.1f} x {dims.z * 1000:.1f} mm"
+            stats = mesh_stats(obj)
+            props.progress_percent = 100
+            props.status_message = f"Exported to Desktop: {os.path.basename(filepath)} ({stats}, {dims_mm})"
+            self.report({'INFO'}, f"STL exported to {filepath}")
+            return {'FINISHED'}
+        except Exception as e:
+            props.status_message = f"Quick Export failed: {short_error(e)}"
+            props.progress_percent = 0
+            self.report({'ERROR'}, f"Quick Export failed: {short_error(e)}")
+            return {'CANCELLED'}
+        finally:
+            props.is_processing = False
+            redraw_ui()
 
 
 # =============================================================================

@@ -26,6 +26,8 @@ from pathlib import Path
 import fal_client
 import requests
 
+HTTP_TIMEOUT = 120
+
 
 # Provider configurations — all via fal.ai where possible
 PROVIDERS = {
@@ -88,6 +90,18 @@ def upload_to_fal(path: str) -> str:
     return url
 
 
+def download_mesh(mesh_url: str, mesh_path: str) -> int:
+    """Download mesh file with HTTP validation. Returns bytes written."""
+    resp = requests.get(mesh_url, timeout=HTTP_TIMEOUT)
+    resp.raise_for_status()
+    content_type = resp.headers.get("content-type", "").lower()
+    if "text/html" in content_type or "application/json" in content_type:
+        raise RuntimeError(f"Unexpected mesh response content-type: {content_type}")
+    with open(mesh_path, "wb") as f:
+        f.write(resp.content)
+    return len(resp.content)
+
+
 def run_provider(provider_id: str, image_paths: list[str], output_dir: str) -> dict:
     """Run a single provider and return results."""
     config = PROVIDERS[provider_id]
@@ -146,12 +160,11 @@ def run_provider(provider_id: str, image_paths: list[str], output_dir: str) -> d
                 mesh_ext = ".fbx"
 
             mesh_path = os.path.join(provider_dir, f"mesh{mesh_ext}")
-            resp = requests.get(mesh_url)
-            with open(mesh_path, "wb") as f:
-                f.write(resp.content)
-            print(f"  Saved mesh: {mesh_path} ({len(resp.content) / 1024:.0f} KB)")
+            size_bytes = download_mesh(mesh_url, mesh_path)
+            print(f"  Saved mesh: {mesh_path} ({size_bytes / 1024:.0f} KB)")
         else:
             mesh_path = None
+            size_bytes = 0
             print(f"  Warning: No mesh URL found in result")
             # Save raw result for debugging
             with open(os.path.join(provider_dir, "raw_result.json"), "w") as f:
@@ -163,7 +176,7 @@ def run_provider(provider_id: str, image_paths: list[str], output_dir: str) -> d
             "time_seconds": elapsed,
             "est_cost": config["est_cost"],
             "mesh_path": mesh_path,
-            "mesh_size_kb": len(resp.content) / 1024 if mesh_url else 0,
+            "mesh_size_kb": size_bytes / 1024 if mesh_path else 0,
             "success": mesh_path is not None,
             "error": None,
         }

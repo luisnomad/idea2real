@@ -76,7 +76,7 @@ if __name__ == "__main__":
     args = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
 
     result = call_tool(tool_name, args)
-    if result:
+    if result is not None:
         print(json.dumps(result, indent=2))
     else:
         print("No result received", file=sys.stderr)
