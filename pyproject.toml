@@ -1,0 +1,30 @@
+[project]
+name = "idea2real"
+version = "0.1.0"
+description = "Blender addon: turn any image into a 3D-printable STL"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pyyaml>=6.0",
+    "requests",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.flake8]
+max-line-length = 100
+exclude = [
+    "vendor/",
+    ".git/",
+    "__pycache__/",
+    "nb3dp_addon.py",
+]
+per-file-ignores = [
+    "tests/*:E501",
+]
