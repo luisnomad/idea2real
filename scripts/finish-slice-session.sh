@@ -237,14 +237,14 @@ write_local_handoff() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --repo) REPO="$2"; shift 2 ;;
-      --base) BASE_BRANCH="$2"; shift 2 ;;
-      --assignee) PR_ASSIGNEE="$2"; shift 2 ;;
-      --slice) SLICE_ID="$2"; shift 2 ;;
-      --issue) ISSUE_NUMBER="$2"; shift 2 ;;
-      --done) DONE_TEXT="$2"; shift 2 ;;
-      --next) NEXT_TEXT="$2"; shift 2 ;;
-      --blockers) BLOCKERS_TEXT="$2"; shift 2 ;;
+      --repo)      [[ $# -lt 2 ]] && fail "--repo requires a value";      REPO="$2"; shift 2 ;;
+      --base)      [[ $# -lt 2 ]] && fail "--base requires a value";      BASE_BRANCH="$2"; shift 2 ;;
+      --assignee)  [[ $# -lt 2 ]] && fail "--assignee requires a value";  PR_ASSIGNEE="$2"; shift 2 ;;
+      --slice)     [[ $# -lt 2 ]] && fail "--slice requires a value";     SLICE_ID="$2"; shift 2 ;;
+      --issue)     [[ $# -lt 2 ]] && fail "--issue requires a value";     ISSUE_NUMBER="$2"; shift 2 ;;
+      --done)      [[ $# -lt 2 ]] && fail "--done requires a value";      DONE_TEXT="$2"; shift 2 ;;
+      --next)      [[ $# -lt 2 ]] && fail "--next requires a value";      NEXT_TEXT="$2"; shift 2 ;;
+      --blockers)  [[ $# -lt 2 ]] && fail "--blockers requires a value";  BLOCKERS_TEXT="$2"; shift 2 ;;
       --no-push) NO_PUSH="true"; shift ;;
       --no-pr) NO_PR="true"; shift ;;
       --no-issue-comment) NO_ISSUE_COMMENT="true"; shift ;;

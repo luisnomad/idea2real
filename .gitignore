@@ -18,5 +18,14 @@ __pycache__/
 # Local env overrides
 .env.local
 
-# Session state (kickoffs, handoffs — managed by orchestrator)
+# Session state (kickoffs, handoffs - managed by orchestrator)
+.sessions/
+
+# Node / web app
+node_modules/
+dist/
+.vite/
+
+# Local env and session files
+.env.local
 .sessions/
