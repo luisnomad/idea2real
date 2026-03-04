@@ -103,6 +103,13 @@ docker compose up -d postgres redis minio
 
 All slice worktrees point to the same shared service endpoints.
 
+Default local endpoints/credentials:
+
+- Postgres: `postgres://idea2real:idea2real@localhost:5432/idea2real`
+- Redis: `redis://localhost:6379`
+- MinIO S3 endpoint: `http://localhost:9000` (console: `http://localhost:9001`)
+- MinIO root credentials: `minioadmin` / `minioadmin`
+
 ## Port Allocation Strategy
 
 Avoid local port clashes by reserving per-worktree app ports.
