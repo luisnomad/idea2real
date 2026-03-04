@@ -16,6 +16,14 @@ import type { StorageAdapter } from '../../adapters/storage/index.js'
 import type { FalAdapter } from '../../adapters/fal/index.js'
 
 // --- Route definitions ---
+const ErrorResponseSchema = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+  }),
+})
+
+const STUB_USER_ID = '11111111-1111-4111-8111-111111111111'
 
 const presignRoute = createRoute({
   method: 'post',
@@ -46,6 +54,10 @@ const createGenerationRoute = createRoute({
       content: { 'application/json': { schema: CreateGenerationResponseSchema } },
       description: 'Generation created',
     },
+    404: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Referenced image asset not found',
+    },
   },
 })
 
@@ -63,7 +75,7 @@ const getGenerationRoute = createRoute({
       description: 'Generation found',
     },
     404: {
-      content: { 'application/json': { schema: z.object({ error: z.object({ code: z.string(), message: z.string() }) }) } },
+      content: { 'application/json': { schema: ErrorResponseSchema } },
       description: 'Not found',
     },
   },
@@ -103,7 +115,7 @@ const getJobRoute = createRoute({
       description: 'Job found',
     },
     404: {
-      content: { 'application/json': { schema: z.object({ error: z.object({ code: z.string(), message: z.string() }) }) } },
+      content: { 'application/json': { schema: ErrorResponseSchema } },
       description: 'Not found',
     },
   },
@@ -123,7 +135,7 @@ const downloadRoute = createRoute({
       description: 'Download URL generated',
     },
     404: {
-      content: { 'application/json': { schema: z.object({ error: z.object({ code: z.string(), message: z.string() }) }) } },
+      content: { 'application/json': { schema: ErrorResponseSchema } },
       description: 'Not found',
     },
   },
@@ -136,6 +148,112 @@ export function createGenerationModule(
   fal: FalAdapter,
 ) {
   const router = new OpenAPIHono<AppEnv>()
+  const findJobByGenerationId = (generationId: string) =>
+    jobStore.list().find((job) => job.payload.generationId === generationId)
+
+  const syncGenerationState = async (generationId: string) => {
+    const generation = generationStore.get(generationId)
+    if (!generation || !generation.providerJobId) return
+
+    const job = findJobByGenerationId(generationId)
+    if (!job) return
+
+    if (generation.status === 'succeeded' || generation.status === 'failed' || job.status === 'cancelled') {
+      return
+    }
+
+    if (generation.status === 'queued') {
+      const now = new Date().toISOString()
+      generationStore.set(generation.id, {
+        ...generation,
+        status: 'processing',
+        updatedAt: now,
+      })
+      jobStore.set(job.id, {
+        ...job,
+        status: 'processing',
+        progress: 10,
+        startedAt: job.startedAt ?? now,
+        updatedAt: now,
+      })
+    }
+
+    const latestGeneration = generationStore.get(generationId)
+    const latestJob = jobStore.get(job.id)
+    if (
+      !latestGeneration
+      || !latestJob
+      || latestGeneration.status !== 'processing'
+      || !latestGeneration.providerJobId
+    ) {
+      return
+    }
+
+    try {
+      const result = await fal.pollResult(latestGeneration.providerJobId)
+      if (!result) {
+        jobStore.set(latestJob.id, {
+          ...latestJob,
+          progress: Math.max(latestJob.progress ?? 0, 60),
+          updatedAt: new Date().toISOString(),
+        })
+        return
+      }
+
+      const now = new Date().toISOString()
+      const modelAssetId = crypto.randomUUID()
+      const extension = result.format.toLowerCase() === 'stl' ? 'stl' : 'glb'
+      const mimeType = extension === 'stl' ? 'model/stl' : 'model/gltf-binary'
+      const storageKey = `generated/${generationId}/${modelAssetId}.${extension}`
+
+      assetStore.set(modelAssetId, {
+        id: modelAssetId,
+        userId: STUB_USER_ID,
+        kind: 'model_source',
+        mimeType,
+        storageKey,
+        fileSizeBytes: 0,
+        parentId: generationId,
+        createdAt: now,
+        updatedAt: now,
+      })
+
+      generationStore.set(latestGeneration.id, {
+        ...latestGeneration,
+        status: 'succeeded',
+        updatedAt: now,
+        artifacts: [...latestGeneration.artifacts, modelAssetId],
+      })
+      jobStore.set(latestJob.id, {
+        ...latestJob,
+        status: 'succeeded',
+        result: {
+          modelAssetId,
+          format: result.format,
+          providerJobId: result.providerJobId,
+        },
+        progress: 100,
+        completedAt: now,
+        updatedAt: now,
+      })
+    } catch (error) {
+      const now = new Date().toISOString()
+      const message = error instanceof Error ? error.message : 'Provider generation failed'
+      generationStore.set(latestGeneration.id, {
+        ...latestGeneration,
+        status: 'failed',
+        errorMessage: message,
+        updatedAt: now,
+      })
+      jobStore.set(latestJob.id, {
+        ...latestJob,
+        status: 'failed',
+        errorMessage: message,
+        completedAt: now,
+        updatedAt: now,
+      })
+    }
+  }
 
   // POST /api/uploads/presign
   router.openapi(presignRoute, async (c) => {
@@ -148,7 +266,7 @@ export function createGenerationModule(
     const now = new Date().toISOString()
     assetStore.set(assetId, {
       id: assetId,
-      userId: 'stub-user',
+      userId: STUB_USER_ID,
       kind: 'reference_image',
       mimeType: body.mimeType,
       storageKey: presigned.storageKey,
@@ -167,15 +285,17 @@ export function createGenerationModule(
   // POST /api/generations
   router.openapi(createGenerationRoute, async (c) => {
     const body = c.req.valid('json')
+    const asset = assetStore.get(body.imageAssetId)
+    if (!asset) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Image asset not found' } }, 404)
+    }
+
     const generationId = crypto.randomUUID()
     const jobId = crypto.randomUUID()
     const now = new Date().toISOString()
 
     // Get the image asset to pass URL to fal
-    const asset = assetStore.get(body.imageAssetId)
-    const imageUrl = asset
-      ? await storage.getDownloadUrl(asset.storageKey)
-      : ''
+    const imageUrl = await storage.getDownloadUrl(asset.storageKey)
 
     // Submit to fal.ai
     const submission = await fal.submitImageTo3D(imageUrl)
@@ -183,7 +303,7 @@ export function createGenerationModule(
     generationStore.set(generationId, {
       id: generationId,
       promptId: crypto.randomUUID(),
-      userId: 'stub-user',
+      userId: STUB_USER_ID,
       status: 'queued',
       provider: body.provider,
       providerJobId: submission.providerJobId,
@@ -194,7 +314,7 @@ export function createGenerationModule(
 
     jobStore.set(jobId, {
       id: jobId,
-      userId: 'stub-user',
+      userId: STUB_USER_ID,
       type: 'model_generation',
       status: 'queued',
       payload: { generationId, imageAssetId: body.imageAssetId, providerJobId: submission.providerJobId },
@@ -216,10 +336,16 @@ export function createGenerationModule(
     if (!gen) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Generation not found' } }, 404)
     }
+    await syncGenerationState(id)
+
+    const latest = generationStore.get(id)
+    if (!latest) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Generation not found' } }, 404)
+    }
 
     // Resolve artifact details
     const artifacts = await Promise.all(
-      gen.artifacts.map(async (assetId) => {
+      latest.artifacts.map(async (assetId) => {
         const asset = assetStore.get(assetId)
         if (!asset) return null
         const downloadUrl = await storage.getDownloadUrl(asset.storageKey)
@@ -235,7 +361,7 @@ export function createGenerationModule(
     )
 
     return c.json({
-      ...gen,
+      ...latest,
       artifacts: artifacts.filter(Boolean) as NonNullable<(typeof artifacts)[number]>[],
     }, 200)
   })
@@ -243,6 +369,7 @@ export function createGenerationModule(
   // GET /api/generations
   router.openapi(listGenerationsRoute, async (c) => {
     const { limit, status } = c.req.valid('query')
+    await Promise.all(generationStore.list().map((generation) => syncGenerationState(generation.id)))
     let items = generationStore.list()
     if (status) items = items.filter((g) => g.status === status)
     items = items.slice(0, limit)
@@ -260,7 +387,19 @@ export function createGenerationModule(
     if (!job) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404)
     }
-    return c.json(job, 200)
+    const generationId = typeof job.payload.generationId === 'string'
+      ? job.payload.generationId
+      : null
+    if (generationId) {
+      await syncGenerationState(generationId)
+    }
+
+    const latest = jobStore.get(id)
+    if (!latest) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404)
+    }
+
+    return c.json(latest, 200)
   })
 
   // GET /api/assets/:id/download

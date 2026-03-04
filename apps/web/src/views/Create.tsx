@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   ImageUpload,
   JobStatus,
@@ -25,10 +25,16 @@ export default function Create() {
   const generation = useGenerationDetail(generationId)
   const job = useJobDetail(jobId)
 
-  // Auto-advance to done when generation succeeds
-  if (step === 'generating' && generation.data?.status === 'succeeded') {
-    setStep('done')
-  }
+  useEffect(() => {
+    if (step !== 'generating') return
+    if (generation.data?.status === 'succeeded') {
+      setStep('done')
+    }
+    if (generation.data?.status === 'failed') {
+      setStep('error')
+      setErrorMsg(generation.data.errorMessage ?? 'Generation failed')
+    }
+  }, [generation.data?.errorMessage, generation.data?.status, step])
 
   const handleGenerate = useCallback(async () => {
     if (!file) return

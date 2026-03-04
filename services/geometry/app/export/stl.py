@@ -1,6 +1,5 @@
 """STL export from trimesh."""
 
-import io
 from pathlib import Path
 
 import trimesh

@@ -44,6 +44,20 @@ describe('bodyLimitGuard', () => {
     const body = await res.json()
     expect(body.error.code).toBe('PAYLOAD_TOO_LARGE')
   })
+
+  it('rejects oversized requests without Content-Length', async () => {
+    const app = createTestApp()
+    const payload = JSON.stringify({ data: 'x'.repeat(2 * 1024 * 1024) })
+    const res = await app.request('/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+    })
+
+    expect(res.status).toBe(413)
+    const body = await res.json()
+    expect(body.error.code).toBe('PAYLOAD_TOO_LARGE')
+  })
 })
 
 describe('jsonOnlyGuard', () => {

@@ -8,9 +8,13 @@ const MAX_BODY_SIZE = 1024 * 1024 // 1MB for JSON payloads
  * Prevents memory exhaustion from oversized payloads.
  */
 export const bodyLimitGuard = createMiddleware<AppEnv>(async (c, next) => {
+  if (c.req.method === 'GET' || c.req.method === 'HEAD' || c.req.method === 'OPTIONS') {
+    return next()
+  }
+
   const contentLength = c.req.header('content-length')
 
-  if (contentLength) {
+  if (contentLength != null) {
     const size = parseInt(contentLength, 10)
     if (isNaN(size) || size > MAX_BODY_SIZE) {
       return c.json(
@@ -23,6 +27,32 @@ export const bodyLimitGuard = createMiddleware<AppEnv>(async (c, next) => {
         },
         413,
       )
+    }
+  }
+  else {
+    // Fallback for chunked requests without Content-Length.
+    const clone = c.req.raw.clone()
+    const reader = clone.body?.getReader()
+    if (reader) {
+      let size = 0
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        size += value.byteLength
+
+        if (size > MAX_BODY_SIZE) {
+          return c.json(
+            {
+              error: {
+                code: 'PAYLOAD_TOO_LARGE',
+                message: `Request body must not exceed ${MAX_BODY_SIZE} bytes`,
+                requestId: c.get('requestId'),
+              },
+            },
+            413,
+          )
+        }
+      }
     }
   }
 

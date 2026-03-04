@@ -6,11 +6,8 @@ from fastapi import FastAPI, File, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.schemas import (
-    CleanupParams,
     CleanupRequest,
     CleanupResultResponse,
-    ErrorDetail,
-    ErrorResponse,
     HealthResponse,
 )
 

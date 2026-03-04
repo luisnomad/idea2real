@@ -88,6 +88,17 @@ describe('POST /api/generations', () => {
     expect(job).toBeDefined()
     expect(job?.type).toBe('model_generation')
   })
+
+  it('returns 404 when referenced asset does not exist', async () => {
+    const res = await app.request('/api/generations', json({
+      imageAssetId: '550e8400-e29b-41d4-a716-446655440000',
+      provider: 'hunyuan3d',
+    }))
+
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error.code).toBe('NOT_FOUND')
+  })
 })
 
 describe('GET /api/generations/:id', () => {
@@ -110,7 +121,7 @@ describe('GET /api/generations/:id', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.id).toBe(generationId)
-    expect(body.status).toBe('queued')
+    expect(['queued', 'processing']).toContain(body.status)
     expect(body.artifacts).toEqual([])
   })
 
@@ -139,12 +150,43 @@ describe('GET /api/jobs/:id', () => {
     const body = await res.json()
     expect(body.id).toBe(jobId)
     expect(body.type).toBe('model_generation')
-    expect(body.status).toBe('queued')
+    expect(['queued', 'processing']).toContain(body.status)
   })
 
   it('returns 404 for unknown job', async () => {
     const res = await app.request('/api/jobs/550e8400-e29b-41d4-a716-446655440000')
     expect(res.status).toBe(404)
+  })
+
+  it('progresses a job to succeeded and creates artifacts', async () => {
+    const uploadRes = await app.request('/api/uploads/presign', json({
+      fileName: 'test.png',
+      mimeType: 'image/png',
+      fileSizeBytes: 1000,
+    }))
+    const { assetId } = await uploadRes.json()
+    const createRes = await app.request('/api/generations', json({
+      imageAssetId: assetId,
+      provider: 'hunyuan3d',
+    }))
+    const { generationId, jobId } = await createRes.json()
+
+    // First poll transitions queued -> processing
+    const first = await app.request(`/api/jobs/${jobId}`)
+    const firstBody = await first.json()
+    expect(firstBody.status).toBe('processing')
+
+    // Wait for stub provider completion and poll again
+    await new Promise((resolve) => setTimeout(resolve, 3200))
+    const second = await app.request(`/api/jobs/${jobId}`)
+    const secondBody = await second.json()
+    expect(secondBody.status).toBe('succeeded')
+    expect(secondBody.result?.modelAssetId).toBeDefined()
+
+    const gen = await app.request(`/api/generations/${generationId}`)
+    const genBody = await gen.json()
+    expect(genBody.status).toBe('succeeded')
+    expect(genBody.artifacts.length).toBeGreaterThan(0)
   })
 })
 

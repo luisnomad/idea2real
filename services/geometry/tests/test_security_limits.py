@@ -82,5 +82,5 @@ def test_error_responses_do_not_leak_internals() -> None:
         },
     )
     body = response.text
-    assert "/app/" not in body or "traceback" not in body.lower()
+    assert "/app/" not in body and "traceback" not in body.lower()
     assert "File " not in body
