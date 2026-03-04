@@ -97,6 +97,19 @@ importers:
         specifier: ^2.1.5
         version: 2.1.9(@types/node@24.11.0)(jsdom@25.0.1)
 
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@24.11.0)(jsdom@25.0.1)
+
   tools/agentic-control:
     dependencies:
       '@clack/prompts':
