@@ -1,8 +1,11 @@
 import uuid
+from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 
 from app.schemas import CleanupRequest, ErrorDetail, ErrorResponse, HealthResponse
+
+RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 
 app = FastAPI(
     title="idea2real Geometry Service",
@@ -11,7 +14,7 @@ app = FastAPI(
 
 
 @app.middleware("http")
-async def add_request_id(request: Request, call_next) -> Response:  # type: ignore[no-untyped-def]
+async def add_request_id(request: Request, call_next: RequestResponseEndpoint) -> Response:
     request_id = request.headers.get("x-request-id", str(uuid.uuid4()))
     response: Response = await call_next(request)
     response.headers["x-request-id"] = request_id

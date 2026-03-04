@@ -43,6 +43,7 @@ def test_cleanup_rejects_empty_operations() -> None:
         },
     )
     assert response.status_code == 422
+    assert "x-request-id" in response.headers
 
 
 def test_cleanup_rejects_invalid_operation() -> None:
