@@ -12,7 +12,7 @@ services:
     image: python:3.11-slim
     working_dir: /workspace
     volumes:
-      - .:/workspace:ro
+      - .:/workspace
     command: >
       sh -c "pip install --quiet pytest pyyaml requests &&
              pytest tests/ -v --ignore=vendor --ignore=vendor/blender-mcp"

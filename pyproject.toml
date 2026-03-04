@@ -9,6 +9,7 @@ dev = [
     "pytest>=7.4",
     "pyyaml>=6.0",
     "requests",
+    "flake8>=6.1",
 ]
 
 [tool.pytest.ini_options]
@@ -17,14 +18,4 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 
-[tool.flake8]
-max-line-length = 100
-exclude = [
-    "vendor/",
-    ".git/",
-    "__pycache__/",
-    "nb3dp_addon.py",
-]
-per-file-ignores = [
-    "tests/*:E501",
-]
+# flake8 config lives in .flake8 (pyproject.toml not supported natively by flake8)

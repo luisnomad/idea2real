@@ -13,7 +13,7 @@ for candidate in python3 python; do
         version=$("$candidate" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
         major=${version%%.*}
         minor=${version##*.}
-        if [ "$major" -ge 3 ] && [ "$minor" -ge 10 ]; then
+        if [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 10 ]; }; then
             python_bin="$candidate"
             break
         fi
