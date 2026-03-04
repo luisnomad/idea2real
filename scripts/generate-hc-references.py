@@ -38,7 +38,10 @@ TECH_SUFFIX = (
 VIEW_ANGLES = {
     "front": "front view, straight-on camera angle, centered in frame",
     "side": "right side profile view, perpendicular to front, centered in frame",
-    "three-quarter": "three-quarter view from front-right at 45 degrees, slightly elevated camera angle",
+    "three-quarter": (
+        "three-quarter view from front-right at 45 degrees, "
+        "slightly elevated camera angle"
+    ),
     "rear": "rear view, straight-on camera angle from behind, centered in frame",
 }
 

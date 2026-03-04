@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 100
+exclude =
+    vendor/,
+    .git/,
+    __pycache__/,
+    nb3dp_addon.py
+per-file-ignores =
+    tests/*:E501
