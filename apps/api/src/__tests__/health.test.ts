@@ -34,3 +34,23 @@ describe('GET /health', () => {
     expect(spec.info.title).toBeTruthy()
   })
 })
+
+describe('global error handlers', () => {
+  it('returns ErrorEnvelope shape on unknown routes (404)', async () => {
+    const app = createApp()
+    const res = await app.request('/unknown-route')
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error.code).toBe('NOT_FOUND')
+    expect(typeof body.error.message).toBe('string')
+  })
+
+  it('includes requestId in 404 ErrorEnvelope', async () => {
+    const app = createApp()
+    const res = await app.request('/unknown-route', {
+      headers: { 'x-request-id': 'req-404-test' },
+    })
+    const body = await res.json()
+    expect(body.error.requestId).toBe('req-404-test')
+  })
+})
