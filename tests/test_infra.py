@@ -63,9 +63,9 @@ class TestDockerCompose:
 # ---------------------------------------------------------------------------
 
 class TestCIWorkflow:
-    """CI workflow must define lint and test jobs with a 3-version Python matrix."""
+    """CI workflow must define node-checks, geometry-checks, and python-legacy jobs."""
 
-    EXPECTED_PYTHON_VERSIONS = {"3.10", "3.11", "3.12"}
+    EXPECTED_GEOMETRY_PYTHON_VERSIONS = {"3.10", "3.12"}
 
     @pytest.fixture(scope="class")
     def workflow(self):
@@ -74,38 +74,31 @@ class TestCIWorkflow:
         with ci_path.open() as f:
             return yaml.safe_load(f)
 
-    def test_lint_job_defined(self, workflow):
-        """Given CI workflow / When jobs checked / Then lint job exists."""
+    def test_node_checks_job_defined(self, workflow):
+        """Given CI workflow / When jobs checked / Then node-checks job exists."""
         jobs = workflow.get("jobs", {})
-        assert "lint" in jobs, "CI workflow missing 'lint' job"
+        assert "node-checks" in jobs, "CI workflow missing 'node-checks' job"
 
-    def test_test_job_defined(self, workflow):
-        """Given CI workflow / When jobs checked / Then test job exists."""
+    def test_geometry_checks_job_defined(self, workflow):
+        """Given CI workflow / When jobs checked / Then geometry-checks job exists."""
         jobs = workflow.get("jobs", {})
-        assert "test" in jobs, "CI workflow missing 'test' job"
+        assert "geometry-checks" in jobs, "CI workflow missing 'geometry-checks' job"
 
-    def test_lint_matrix_has_three_python_versions(self, workflow):
-        """Given lint job / When matrix checked / Then 3.10, 3.11, 3.12 present."""
+    def test_python_legacy_job_defined(self, workflow):
+        """Given CI workflow / When jobs checked / Then python-legacy job exists."""
+        jobs = workflow.get("jobs", {})
+        assert "python-legacy" in jobs, "CI workflow missing 'python-legacy' job"
+
+    def test_geometry_matrix_has_python_versions(self, workflow):
+        """Given geometry-checks job / When matrix checked / Then 3.10, 3.12 present."""
         matrix = (
-            workflow["jobs"]["lint"]
+            workflow["jobs"]["geometry-checks"]
             .get("strategy", {})
             .get("matrix", {})
         )
         versions = {str(v) for v in matrix.get("python-version", [])}
-        assert versions == self.EXPECTED_PYTHON_VERSIONS, (
-            f"Expected Python {self.EXPECTED_PYTHON_VERSIONS}, got {versions}"
-        )
-
-    def test_test_matrix_has_three_python_versions(self, workflow):
-        """Given test job / When matrix checked / Then 3.10, 3.11, 3.12 present."""
-        matrix = (
-            workflow["jobs"]["test"]
-            .get("strategy", {})
-            .get("matrix", {})
-        )
-        versions = {str(v) for v in matrix.get("python-version", [])}
-        assert versions == self.EXPECTED_PYTHON_VERSIONS, (
-            f"Expected Python {self.EXPECTED_PYTHON_VERSIONS}, got {versions}"
+        assert versions == self.EXPECTED_GEOMETRY_PYTHON_VERSIONS, (
+            f"Expected Python {self.EXPECTED_GEOMETRY_PYTHON_VERSIONS}, got {versions}"
         )
 
     def test_workflow_triggers_on_push(self, workflow):
