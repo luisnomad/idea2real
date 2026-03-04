@@ -1,0 +1,14 @@
+{
+  "name": "idea2real",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "agentic": "pnpm --dir tools/agentic-control start",
+    "agentic:dist": "node tools/agentic-control/dist/cli.js",
+    "agentic:build": "pnpm --dir tools/agentic-control build",
+    "agentic:test": "pnpm --dir tools/agentic-control test"
+  }
+}

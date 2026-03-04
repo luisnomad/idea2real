@@ -1,5 +1,9 @@
 .env
 **/.env
+.env.local
+**/.env.local
+.sessions/
+**/.sessions/
 .DS_Store
 **/.DS_Store
 
@@ -14,3 +18,9 @@ __pycache__/
 **/.mypy_cache/
 *.egg-info/
 .ruff_cache/
+
+# Node/TS
+node_modules/
+**/node_modules/
+dist/
+**/dist/
