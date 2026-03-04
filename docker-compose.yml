@@ -6,7 +6,7 @@ services:
       - .:/workspace:ro
     command: >
       sh -c "pip install --quiet flake8 &&
-             flake8 scripts/ tests/ --max-line-length=100"
+             flake8 scripts/ tests/ --max-line-length=100 --exclude=vendor,vendor/blender-mcp"
 
   test:
     image: python:3.11-slim
@@ -15,4 +15,4 @@ services:
       - .:/workspace:ro
     command: >
       sh -c "pip install --quiet pytest pyyaml requests &&
-             pytest tests/ -v"
+             pytest tests/ -v --ignore=vendor --ignore=vendor/blender-mcp"

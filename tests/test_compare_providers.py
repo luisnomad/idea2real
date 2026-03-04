@@ -9,9 +9,7 @@ Given/When/Then:
 
 import base64
 import importlib.util
-import os
 import sys
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
