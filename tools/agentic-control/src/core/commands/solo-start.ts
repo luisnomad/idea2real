@@ -1,6 +1,6 @@
 import type { AppConfig, CommandResult } from "../../types/contracts.js";
 import { ok } from "../command-utils.js";
-import { askText, info, note } from "../../ui/clack/prompts.js";
+import { askSelect, askText, info, note } from "../../ui/clack/prompts.js";
 import { toSlug } from "../../utils/text.js";
 import { runCommand } from "../../adapters/exec.js";
 import { branchExists, checkoutBranch, createBranchFromBase, currentBranch, fetchRef, hasDirtyWorktree } from "../git.js";
@@ -13,6 +13,7 @@ export interface SoloStartOptions {
   issues?: string;
   branch?: string;
   deliveryMode?: "phase-pr" | "single-issue";
+  reviewMode?: "github-pr" | "local-agent";
 }
 
 export async function runSoloStart(config: AppConfig, options: SoloStartOptions): Promise<CommandResult> {
@@ -37,6 +38,24 @@ export async function runSoloStart(config: AppConfig, options: SoloStartOptions)
 
   const branch = options.branch ?? sprintBranchName(phase, slug);
   const deliveryMode = options.deliveryMode === "single-issue" ? "single-issue" : "phase-pr";
+  const reviewMode: "github-pr" | "local-agent" =
+    options.reviewMode ??
+    (!config.nonInteractive
+      ? await askSelect<"github-pr" | "local-agent">({
+          message: "Review mode for this sprint",
+          options: [
+            {
+              value: "github-pr",
+              label: "GitHub PR review (commit/push/PR during finalize)",
+            },
+            {
+              value: "local-agent",
+              label: "Local agent review first (no commit/push/PR until publish)",
+            },
+          ],
+          initialValue: "github-pr",
+        })
+      : "github-pr");
 
   const issueRaw =
     options.issues ??
@@ -73,12 +92,14 @@ export async function runSoloStart(config: AppConfig, options: SoloStartOptions)
     slug,
     branch,
     deliveryMode,
+    reviewMode,
     issues,
   });
 
   const state: SoloState = {
     mode: "solo",
     deliveryMode,
+    reviewMode,
     phase,
     slug,
     branch,

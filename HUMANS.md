@@ -49,7 +49,7 @@ Issue status automation is baked in:
 - `solo start/resume` -> move linked sprint issues to `In Progress`
 - `solo add-issues` -> move newly linked sprint issues to `In Progress`
 - `slice finalize` -> move slice issue to `Review`
-- `solo finalize` -> move linked sprint issues to `Review`
+- `solo finalize` -> local review handoff OR move linked sprint issues to `Review` (when published)
 - `pr merge` -> move slice issue to `Done`
 
 Equivalent non-interactive commands:
@@ -58,11 +58,12 @@ Equivalent non-interactive commands:
 pnpm agentic session start
 pnpm agentic session resume
 pnpm agentic continue
-pnpm agentic solo start --phase P1 --slug api-core --issues "2,3" --delivery-mode phase-pr
+pnpm agentic solo start --phase P1 --slug api-core --issues "2,3" --delivery-mode phase-pr --review-mode local-agent
 pnpm agentic solo resume
 pnpm agentic solo add-issues --issues "4,5"
 pnpm agentic solo checkpoint --summary "..." --next "..." --blockers "None"
-pnpm agentic solo finalize --done "..." --next "Review and merge PR" --blockers "None"
+pnpm agentic solo finalize --done "..." --next "Local review requested" --blockers "None"
+pnpm agentic solo finalize --publish --done "..." --next "Review and merge PR" --blockers "None"
 pnpm agentic setup bootstrap-gh
 pnpm agentic slice finalize
 pnpm agentic pr loop
@@ -114,8 +115,9 @@ Lifecycle:
 2. `agentic continue` (resume active solo sprint, or pick/start next solo slice if none is active)
 3. `agentic solo add-issues` (optional: absorb more same-phase issues into the active solo sprint/PR)
 4. `agentic solo checkpoint` (records progress and optionally comments linked issues)
-5. `agentic solo finalize` (tests/commit, opens or reuses PR, updates PR body with linked issues, moves issues to `Review`)
-6. `agentic pr merge` (moves to `Done` after merge)
+5. `agentic solo finalize` (in `local-agent` review mode: creates local review handoff, no commit/push/PR)
+6. `agentic solo finalize --publish` (after local review: commits/publishes PR, updates PR body, moves issues to `Review`)
+7. `agentic pr merge` (moves to `Done` after merge)
 
 Important:
 

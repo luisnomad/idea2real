@@ -14,11 +14,12 @@ Node-based local control panel for idea2real agentic development.
 pnpm agentic session start
 pnpm agentic session resume
 pnpm agentic continue
-pnpm agentic solo start --phase P1 --slug api-core --issues "2,3" --delivery-mode phase-pr
+pnpm agentic solo start --phase P1 --slug api-core --issues "2,3" --delivery-mode phase-pr --review-mode local-agent
 pnpm agentic solo resume
 pnpm agentic solo add-issues --issues "4,5"
 pnpm agentic solo checkpoint --summary "..."
-pnpm agentic solo finalize --done "..."
+pnpm agentic solo finalize --done "..."                  # local handoff in local-agent mode
+pnpm agentic solo finalize --publish --done "..."        # publish PR after local review
 pnpm agentic setup bootstrap-gh
 pnpm agentic slice finalize
 pnpm agentic pr loop

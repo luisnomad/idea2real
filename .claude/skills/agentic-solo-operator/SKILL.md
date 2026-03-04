@@ -15,7 +15,7 @@ Use this skill when the user wants one agent to drive a whole sprint with minima
 ## Core Workflow
 
 1. Start or resume sprint:
-- `agentic solo start --phase Pn --slug <topic> --issues "1,2,3" --non-interactive --json`
+- `agentic solo start --phase Pn --slug <topic> --issues "1,2,3" --review-mode <github-pr|local-agent> --non-interactive --json`
 - If already active: `agentic solo resume --non-interactive --json`
 
 2. Implement sprint scope on solo branch:
@@ -28,7 +28,10 @@ Use this skill when the user wants one agent to drive a whole sprint with minima
 - `agentic solo checkpoint --summary "..." --next "..." --blockers "None" --json`
 
 4. Finalize when PR-ready:
-- `agentic solo finalize --done "..." --next "Review and merge PR" --blockers "None" --json`
+- If review mode is `local-agent`, first run:
+  - `agentic solo finalize --done "..." --next "Local review requested" --blockers "None" --json`
+- After local review + fixes, publish:
+  - `agentic solo finalize --publish --done "..." --next "Review and merge PR" --blockers "None" --json`
 
 5. Review loop if needed:
 - `agentic pr loop --pr auto --json`
