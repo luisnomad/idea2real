@@ -10,6 +10,7 @@ This folder defines the development plan for evolving idea2real from a Blender a
 - `MEANINGFUL_TDD_PLAYBOOK.md`: behavior-first test workflow used as a delivery gate.
 - `FRONTEND_UI_DIRECTION.md`: UI inspiration translated into actionable layout, visual, and component direction.
 - `COMPANY_AGENTIC_SHOWCASE.md`: company-facing overview of the full human+agent orchestration model with diagrams.
+- `AGENTIC_CONTROL_PANEL.md`: command contracts and architecture for Node/Clack orchestration (parallel + solo modes).
 - `SECURITY_BASELINE.md`: production security controls for VPS deployment, prompt safety, and secret management.
 
 ## Scope Summary

@@ -18,6 +18,10 @@ DELETE_REMOTE="false"
 FORCE="false"
 YES="false"
 DRY_RUN="false"
+DIRTY_WORKTREE="false"
+DIRTY_COUNT=0
+DIRTY_PREVIEW=""
+LOCAL_AHEAD_COUNT=0
 
 usage() {
   cat <<'EOF'
@@ -121,6 +125,64 @@ ensure_not_current_worktree() {
   fi
 }
 
+collect_danger_state() {
+  DIRTY_WORKTREE="false"
+  DIRTY_COUNT=0
+  DIRTY_PREVIEW=""
+  LOCAL_AHEAD_COUNT=0
+
+  if [[ -n "${WORKTREE_PATH}" && -d "${WORKTREE_PATH}" ]]; then
+    local status_lines
+    status_lines="$(git -C "${WORKTREE_PATH}" status --porcelain 2>/dev/null || true)"
+    if [[ -n "${status_lines}" ]]; then
+      DIRTY_WORKTREE="true"
+      DIRTY_COUNT="$(printf '%s\n' "${status_lines}" | sed '/^$/d' | wc -l | tr -d ' ')"
+      DIRTY_PREVIEW="$(printf '%s\n' "${status_lines}" | sed -n '1,10p')"
+    fi
+  fi
+
+  if git -C "${REPO_ROOT}" show-ref --verify --quiet "refs/remotes/origin/${BRANCH_NAME}"; then
+    local counts
+    counts="$(git -C "${REPO_ROOT}" rev-list --left-right --count "origin/${BRANCH_NAME}...${BRANCH_NAME}" 2>/dev/null || true)"
+    if [[ "${counts}" =~ ^[0-9]+[[:space:]][0-9]+$ ]]; then
+      # rev-list --left-right --count A...B => "<left-only> <right-only>"
+      LOCAL_AHEAD_COUNT="$(echo "${counts}" | awk '{print $2}')"
+    fi
+  fi
+}
+
+confirm_destructive_if_needed() {
+  local warned="false"
+
+  if [[ "${DIRTY_WORKTREE}" == "true" ]]; then
+    warned="true"
+    echo
+    echo "Warning: target worktree has uncommitted changes (${DIRTY_COUNT} file(s))."
+    echo "These local changes will be permanently lost if cleanup proceeds."
+    echo "${DIRTY_PREVIEW}" | sed 's/^/  /'
+  fi
+
+  if [[ "${LOCAL_AHEAD_COUNT}" =~ ^[0-9]+$ ]] && (( LOCAL_AHEAD_COUNT > 0 )); then
+    warned="true"
+    echo
+    echo "Warning: local branch is ahead of origin by ${LOCAL_AHEAD_COUNT} commit(s)."
+    echo "Those local-only commits can be lost after cleanup if not merged elsewhere."
+  fi
+
+  if [[ "${warned}" == "true" ]]; then
+    if [[ "${FORCE}" != "true" ]]; then
+      fail "Dangerous cleanup detected. Re-run with --force after reviewing warnings."
+    fi
+
+    if [[ "${YES}" != "true" && "${DRY_RUN}" != "true" ]]; then
+      confirm "Destructive cleanup confirmed? This may permanently delete local work." || {
+        echo "Cancelled."
+        exit 0
+      }
+    fi
+  fi
+}
+
 is_branch_merged_via_pr() {
   local branch="$1"
 
@@ -179,17 +241,35 @@ print_plan() {
 
 run_cleanup() {
   if [[ -n "${WORKTREE_PATH}" ]]; then
+    local wt_remove_cmd=(git -C "${REPO_ROOT}" worktree remove "${WORKTREE_PATH}")
+    if [[ "${FORCE}" == "true" ]]; then
+      wt_remove_cmd=(git -C "${REPO_ROOT}" worktree remove --force "${WORKTREE_PATH}")
+    fi
+
     if [[ "${DRY_RUN}" == "true" ]]; then
-      echo "[dry-run] git -C \"${REPO_ROOT}\" worktree remove \"${WORKTREE_PATH}\""
+      if [[ "${FORCE}" == "true" ]]; then
+        echo "[dry-run] git -C \"${REPO_ROOT}\" worktree remove --force \"${WORKTREE_PATH}\""
+      else
+        echo "[dry-run] git -C \"${REPO_ROOT}\" worktree remove \"${WORKTREE_PATH}\""
+      fi
     else
-      git -C "${REPO_ROOT}" worktree remove "${WORKTREE_PATH}"
+      "${wt_remove_cmd[@]}"
     fi
   fi
 
+  local branch_delete_cmd=(git -C "${REPO_ROOT}" branch -d "${BRANCH_NAME}")
+  if [[ "${FORCE}" == "true" ]]; then
+    branch_delete_cmd=(git -C "${REPO_ROOT}" branch -D "${BRANCH_NAME}")
+  fi
+
   if [[ "${DRY_RUN}" == "true" ]]; then
-    echo "[dry-run] git -C \"${REPO_ROOT}\" branch -d \"${BRANCH_NAME}\""
+    if [[ "${FORCE}" == "true" ]]; then
+      echo "[dry-run] git -C \"${REPO_ROOT}\" branch -D \"${BRANCH_NAME}\""
+    else
+      echo "[dry-run] git -C \"${REPO_ROOT}\" branch -d \"${BRANCH_NAME}\""
+    fi
   else
-    git -C "${REPO_ROOT}" branch -d "${BRANCH_NAME}"
+    "${branch_delete_cmd[@]}"
   fi
 
   if [[ "${DELETE_REMOTE}" == "true" ]]; then
@@ -232,7 +312,9 @@ main() {
   resolve_worktree_path
   ensure_not_current_worktree
   ensure_branch_merged
+  collect_danger_state
   print_plan
+  confirm_destructive_if_needed
 
   if [[ "${YES}" != "true" && "${DRY_RUN}" != "true" ]]; then
     confirm "Proceed with cleanup?" || {

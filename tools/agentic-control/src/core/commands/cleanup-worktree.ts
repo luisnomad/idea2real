@@ -1,4 +1,5 @@
 import type { AppConfig, CommandResult } from "../../types/contracts.js";
+import { runCommand } from "../../adapters/exec.js";
 import { runScript } from "../../adapters/scripts.js";
 import { askConfirm, askSelect, askText } from "../../ui/clack/prompts.js";
 import { listLocalSliceWorktrees } from "../discovery/slices.js";
@@ -37,6 +38,23 @@ export async function runCleanupWorktree(config: AppConfig, options: CleanupOpti
     throw new Error(dryRun.stderr || dryRun.stdout || "cleanup dry-run failed");
   }
 
+  const worktreePath = parsePlanValue(dryRun.stdout, "Worktree");
+  if (worktreePath && worktreePath !== "<not attached>") {
+    const dirtySummary = await detectDirtyWorktree(worktreePath);
+    if (dirtySummary.count > 0 && !config.nonInteractive) {
+      const preview = dirtySummary.preview.length > 0 ? `\n${dirtySummary.preview.join("\n")}` : "";
+      const acknowledged = await askConfirm({
+        message: `Danger: ${dirtySummary.count} uncommitted file(s) in ${worktreePath} will be permanently deleted.${preview}\nContinue?`,
+        initialValue: false,
+      });
+      if (!acknowledged) {
+        result.status = "warn";
+        result.summary = "Cleanup canceled due to destructive risk warning";
+        return result;
+      }
+    }
+  }
+
   if (!config.nonInteractive) {
     const execute = await askConfirm({ message: "Execute cleanup now?", initialValue: true });
     if (!execute) {
@@ -59,6 +77,25 @@ export async function runCleanupWorktree(config: AppConfig, options: CleanupOpti
 
   result.nextSteps.push("Run `agentic doctor` to verify workspace health.");
   return result;
+}
+
+function parsePlanValue(planOutput: string, key: string): string {
+  const regex = new RegExp(`^\\s*${key}:\\s*(.+)$`, "m");
+  const match = regex.exec(planOutput);
+  return match?.[1]?.trim() ?? "";
+}
+
+async function detectDirtyWorktree(path: string): Promise<{ count: number; preview: string[] }> {
+  const status = await runCommand("git", ["-C", path, "status", "--porcelain"], { reject: false });
+  if (status.exitCode !== 0 || !status.stdout.trim()) {
+    return { count: 0, preview: [] };
+  }
+
+  const lines = status.stdout.split("\n").filter((line) => line.trim().length > 0);
+  return {
+    count: lines.length,
+    preview: lines.slice(0, 10).map((line) => `- ${line}`),
+  };
 }
 
 async function resolveCleanupTarget(

@@ -45,3 +45,29 @@ export function buildPrWorktreePath(repoRoot: string, repoName: string, prNumber
   const slug = branch.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
   return join(repoRoot, "..", `${repoName}-pr-${prNumber}-${slug}`);
 }
+
+export async function currentBranch(repoRoot: string): Promise<string> {
+  const result = await runCommand("git", ["-C", repoRoot, "rev-parse", "--abbrev-ref", "HEAD"], { reject: false });
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout || "Failed to resolve current branch");
+  }
+  return result.stdout.trim();
+}
+
+export async function checkoutBranch(repoRoot: string, branch: string): Promise<void> {
+  const result = await runCommand("git", ["-C", repoRoot, "checkout", branch], { reject: false });
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout || `Failed to checkout branch ${branch}`);
+  }
+}
+
+export async function createBranchFromBase(repoRoot: string, branch: string, baseRef: string): Promise<void> {
+  const result = await runCommand("git", ["-C", repoRoot, "checkout", "-b", branch, baseRef], { reject: false });
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout || `Failed to create branch ${branch} from ${baseRef}`);
+  }
+}
+
+export async function fetchRef(repoRoot: string, remote: string, ref: string): Promise<void> {
+  await runCommand("git", ["-C", repoRoot, "fetch", remote, ref], { reject: false });
+}

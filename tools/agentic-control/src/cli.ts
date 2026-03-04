@@ -12,6 +12,13 @@ import { runCleanupWorktree } from "./core/commands/cleanup-worktree.js";
 import { runPmSeedIssues } from "./core/commands/pm-seed-issues.js";
 import { runSetupBootstrap } from "./core/commands/setup-bootstrap.js";
 import { runUiDashboard } from "./core/commands/ui-dashboard.js";
+import { runSoloStart } from "./core/commands/solo-start.js";
+import { runSoloResume } from "./core/commands/solo-resume.js";
+import { runSoloCheckpoint } from "./core/commands/solo-checkpoint.js";
+import { runSoloFinalize } from "./core/commands/solo-finalize.js";
+import { runSoloAddIssues } from "./core/commands/solo-add-issues.js";
+import { runPmNextPhase } from "./core/commands/pm-next-phase.js";
+import { runContinue } from "./core/commands/continue.js";
 import { runInteractiveMenu } from "./ui/clack/menu.js";
 import { emitResult, normalizeError } from "./utils/output.js";
 import type { CommandResult } from "./types/contracts.js";
@@ -140,12 +147,25 @@ export function buildProgram(): Command {
     .action(async function action(this: Command) {
       await runAndEmit(withGlobals(this), (config) => runPmSeedIssues(config, this.opts()));
     });
+  addExecutionOptions(pm.command("next-phase"))
+    .description("Generate PM prompt/context for next phase planning")
+    .option("--phase <phase>", "Target phase (e.g. P1)")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runPmNextPhase(config, this.opts()));
+    });
 
   addExecutionOptions(program.command("doctor"))
     .description("Deep health checks")
     .option("--quick", "Run quick checks only")
     .action(async function action(this: Command) {
       await runAndEmit(withGlobals(this), (config) => runDoctor(config, this.opts()));
+    });
+
+  addExecutionOptions(program.command("continue"))
+    .description("Continue solo flow (resume active sprint or start next solo slice)")
+    .option("--branch <name>", "Solo branch to resume")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runContinue(config, this.opts()));
     });
 
   const setup = new Command("setup").description("Setup and bootstrap operations");
@@ -156,6 +176,56 @@ export function buildProgram(): Command {
     });
 
   program.addCommand(session);
+  const solo = new Command("solo").description("Single-agent sprint operations (no worktree)");
+  addExecutionOptions(solo.command("start"))
+    .description("Start or initialize a solo sprint branch")
+    .option("--phase <phase>", "Sprint phase (e.g. P1)")
+    .option("--slug <slug>", "Sprint slug (e.g. api-core)")
+    .option("--issues <list>", "Comma-separated issue numbers")
+    .option("--branch <name>", "Override branch name")
+    .option("--delivery-mode <mode>", "phase-pr|single-issue (default: phase-pr)")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runSoloStart(config, this.opts()));
+    });
+  addExecutionOptions(solo.command("resume"))
+    .description("Resume active solo sprint")
+    .option("--branch <name>", "Solo branch to resume")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runSoloResume(config, this.opts()));
+    });
+  addExecutionOptions(solo.command("add-issues"))
+    .description("Add more issues to active solo sprint (phase PR)")
+    .option("--issues <list>", "Comma-separated issue numbers")
+    .option("--no-issue-comment", "Skip issue comments")
+    .option("--no-update-pr", "Skip updating open PR body")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runSoloAddIssues(config, this.opts()));
+    });
+  addExecutionOptions(solo.command("checkpoint"))
+    .description("Create solo sprint checkpoint and optional issue comments")
+    .option("--summary <text>", "Checkpoint summary")
+    .option("--next <text>", "Next action")
+    .option("--blockers <text>", "Blockers summary")
+    .option("--no-issue-comment", "Skip issue comments")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runSoloCheckpoint(config, this.opts()));
+    });
+  addExecutionOptions(solo.command("finalize"))
+    .description("Finalize solo sprint into PR-ready state")
+    .option("--done <text>", "Done summary")
+    .option("--next <text>", "Next action")
+    .option("--blockers <text>", "Blockers summary")
+    .option("--test <cmd>", "Test command")
+    .option("--skip-tests", "Skip tests")
+    .option("--auto-commit", "Auto-commit dirty tree")
+    .option("--commit-message <text>", "Commit message if auto-committing")
+    .option("--pr-title <title>", "PR title override")
+    .option("--assignee <user>", "PR assignee", "@me")
+    .option("--no-issue-comment", "Skip issue comments")
+    .action(async function action(this: Command) {
+      await runAndEmit(withGlobals(this), (config) => runSoloFinalize(config, this.opts()));
+    });
+  program.addCommand(solo);
   program.addCommand(slice);
   program.addCommand(pr);
   program.addCommand(cleanup);

@@ -1,7 +1,7 @@
 import { runGhJson } from "../adapters/gh.js";
 import { extractSliceFromBranch } from "../utils/text.js";
 
-interface IssuePayload {
+export interface IssuePayload {
   number: number;
   title: string;
   url: string;
@@ -39,6 +39,45 @@ export async function resolveIssueBySlice(repo: string, sliceId: string): Promis
   ]);
 
   return issues[0] ?? null;
+}
+
+export async function getIssueByNumber(repo: string, issueNumber: number): Promise<IssuePayload | null> {
+  const issues = await runGhJson<IssuePayload[]>([
+    "issue",
+    "list",
+    "--repo",
+    repo,
+    "--state",
+    "all",
+    "--search",
+    `#${issueNumber}`,
+    "--limit",
+    "1",
+    "--json",
+    "number,title,url",
+  ]);
+
+  const issue = issues.find((candidate) => candidate.number === issueNumber);
+  return issue ?? null;
+}
+
+export async function listOpenSliceIssuesByLabel(repo: string, label: string): Promise<IssuePayload[]> {
+  return runGhJson<IssuePayload[]>([
+    "issue",
+    "list",
+    "--repo",
+    repo,
+    "--label",
+    "slice",
+    "--label",
+    label,
+    "--state",
+    "open",
+    "--limit",
+    "200",
+    "--json",
+    "number,title,url",
+  ]);
 }
 
 export async function findPrByBranch(repo: string, branch: string, state: "open" | "merged" | "all" = "all"): Promise<PrPayload | null> {

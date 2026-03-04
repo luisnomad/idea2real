@@ -7,6 +7,8 @@ test("CLI exposes required top-level command families", () => {
   const names = program.commands.map((command) => command.name());
 
   assert.ok(names.includes("session"));
+  assert.ok(names.includes("continue"));
+  assert.ok(names.includes("solo"));
   assert.ok(names.includes("slice"));
   assert.ok(names.includes("pr"));
   assert.ok(names.includes("cleanup"));
@@ -24,4 +26,23 @@ test("PR loop command defaults --pr to auto", () => {
 
   const prOption = loop?.options.find((option) => option.long === "--pr");
   assert.equal(prOption?.defaultValue, "auto");
+});
+
+test("PM command includes next-phase", () => {
+  const program = buildProgram();
+  const pm = program.commands.find((command) => command.name() === "pm");
+  assert.ok(pm);
+
+  const names = pm?.commands.map((command) => command.name()) ?? [];
+  assert.ok(names.includes("seed-issues"));
+  assert.ok(names.includes("next-phase"));
+});
+
+test("Solo command includes add-issues", () => {
+  const program = buildProgram();
+  const solo = program.commands.find((command) => command.name() === "solo");
+  assert.ok(solo);
+
+  const names = solo?.commands.map((command) => command.name()) ?? [];
+  assert.ok(names.includes("add-issues"));
 });

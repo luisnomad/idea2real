@@ -15,12 +15,19 @@ Replace the large `agentic.sh` interactive bash menu with a maintainable Node.js
 ```bash
 agentic session start
 agentic session resume
+agentic continue
+agentic solo start
+agentic solo resume
+agentic solo add-issues
+agentic solo checkpoint
+agentic solo finalize
 agentic setup bootstrap-gh
 agentic slice finalize
 agentic pr loop
 agentic pr merge
 agentic cleanup worktree
 agentic pm seed-issues
+agentic pm next-phase
 agentic doctor
 agentic ui dashboard
 ```
@@ -70,6 +77,7 @@ Core selectors:
 - `src/ui/clack/**`: interactive menu and prompts
 - `src/core/commands/**`: command handlers
 - `src/core/discovery/**`: slice/worktree/issue discovery and dedup
+- `src/core/solo.ts`: solo sprint state persistence (`.sessions/solo/state.json`)
 - `src/adapters/gh.ts`: GitHub CLI wrapper with transient retry handling
 - `src/adapters/scripts.ts`: parity wrapper for existing bash scripts
 - `src/core/status-moves.ts`: project status transitions (`In Progress` -> `Review` -> `Done`)
@@ -82,6 +90,24 @@ Parity-first hybrid:
 1. New Node control plane handles command UX and orchestration.
 2. Existing scripts remain execution backend for stable paths.
 3. `scripts/agentic-legacy.sh` remains fallback implementation.
+
+## Execution Modes
+
+`parallel` mode:
+
+- Worktree-per-slice.
+- Best for multi-agent parallel delivery.
+- Typical flow: `session start` (pick next slice) -> `slice finalize` -> PR loop/merge.
+
+`solo` mode:
+
+- Single sprint branch, no extra worktree.
+- Commands: `solo start/resume/add-issues/checkpoint/finalize`.
+- Default delivery mode: `phase-pr` (single PR with multiple linked issues).
+- `continue` resumes active solo sprint or starts the next solo slice if no active solo sprint exists.
+- Best for rapid scaffolding and one-agent sprints.
+- Supports autonomous operation with repo-local skill:
+  - `.claude/skills/agentic-solo-operator/SKILL.md`
 
 ## Phase 2 (Ink)
 

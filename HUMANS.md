@@ -26,28 +26,108 @@ cd <your-clone-path>   # e.g. ~/Projects/idea2real
 
 `agentic.sh` now launches the Node.js control panel (`tools/agentic-control`) with a Clack interactive UI.
 
+First screen now asks for mode selection:
+
+- `Parallel` (multi-agent slices + worktrees)
+- `Solo` (single-agent sprint on one branch)
+- `Operations` (setup, PM, diagnostics)
+
 Core actions exposed in the control panel:
 
 - Session: start or resume a slice.
+- Solo: start/resume/checkpoint/finalize one-agent sprint on a single branch.
 - Slice: finalize slice (tests, optional commit, finish flow, move issue to `Review`).
 - PR: feedback loop and merge/cleanup.
 - Cleanup: standalone worktree/branch cleanup.
-- PM: seed P0/security issue sets.
+- PM: seed issue sets and generate next-phase PM prompts.
 - Diagnostics: doctor checks.
+
+Issue status automation is baked in:
+
+- `session start/resume` -> move slice issue to `In Progress`
+- `solo start/resume` -> move linked sprint issues to `In Progress`
+- `solo add-issues` -> move newly linked sprint issues to `In Progress`
+- `slice finalize` -> move slice issue to `Review`
+- `solo finalize` -> move linked sprint issues to `Review`
+- `pr merge` -> move slice issue to `Done`
 
 Equivalent non-interactive commands:
 
 ```bash
 pnpm agentic session start
 pnpm agentic session resume
+pnpm agentic continue
+pnpm agentic solo start --phase P1 --slug api-core --issues "2,3" --delivery-mode phase-pr
+pnpm agentic solo resume
+pnpm agentic solo add-issues --issues "4,5"
+pnpm agentic solo checkpoint --summary "..." --next "..." --blockers "None"
+pnpm agentic solo finalize --done "..." --next "Review and merge PR" --blockers "None"
 pnpm agentic setup bootstrap-gh
 pnpm agentic slice finalize
 pnpm agentic pr loop
 pnpm agentic pr merge
 pnpm agentic cleanup worktree
 pnpm agentic pm seed-issues
+pnpm agentic pm next-phase --phase P2
 pnpm agentic doctor --quick
 ```
+
+Short aliases:
+
+```bash
+./ag session start
+pnpm a:start
+pnpm a:resume
+pnpm a:continue
+pnpm a:solo-start
+pnpm a:solo-resume
+pnpm a:solo-add
+pnpm a:solo-checkpoint
+pnpm a:solo-finalize
+pnpm a:done
+pnpm a:loop
+pnpm a:merge
+pnpm a:clean
+pnpm a:pm
+pnpm a:pm-next
+pnpm a:doctor
+```
+
+## Solo Agent Mode
+
+Use solo mode when one LLM should drive a whole sprint quickly (no worktree orchestration overhead).
+
+Default delivery mode is `phase-pr`: one PR can cover multiple linked issues in the same phase.
+
+Lifecycle:
+
+1. `agentic solo start` (creates/checkout sprint branch from `main`, writes kickoff file, sets issues to `In Progress`)
+2. `agentic continue` (resume active solo sprint, or pick/start next solo slice if none is active)
+3. `agentic solo add-issues` (optional: absorb more same-phase issues into the active solo sprint/PR)
+4. `agentic solo checkpoint` (records progress and optionally comments linked issues)
+5. `agentic solo finalize` (tests/commit, opens or reuses PR, updates PR body with linked issues, moves issues to `Review`)
+6. `agentic pr merge` (moves to `Done` after merge)
+
+Important:
+
+- `agentic continue` resumes active solo sprint if one exists; otherwise it offers to start the next solo slice from discovered issues.
+- In parallel mode, use `agentic session start` to pick the next slice.
+
+Solo state files:
+
+- `.sessions/solo/state.json`
+- `.sessions/solo/kickoff-<phase>-<slug>.md`
+- `.sessions/solo/checkpoints/*.md`
+
+LLM automation skill (repo-local):
+
+- `.claude/skills/agentic-solo-operator/SKILL.md`
+
+Cleanup safety behavior:
+
+- Cleanup checks dirty worktrees and local-ahead commits before deletion.
+- If risk is detected, it prints warnings and asks for explicit destructive confirmation.
+- Without `--force`, risky cleanup is blocked.
 
 All commands support machine-readable output:
 
@@ -110,10 +190,10 @@ Menu-driven:
 ./agentic.sh
 ```
 
-Then choose:
+Then choose either:
 
-- `4` for guided discover/start, or
-- `5` for direct session creation.
+- `Session / Start or resume guided session` for parallel slice mode.
+- `Solo / Start single-agent sprint` for one-agent sprint mode.
 
 Direct command flow:
 

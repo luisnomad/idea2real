@@ -23,6 +23,13 @@ Core idea:
 
 This gives us speed from parallelism without losing control over quality and traceability.
 
+We now support two execution modes:
+
+- Parallel mode: multiple agents, one slice + worktree each.
+- Solo mode: one agent, one sprint branch, reduced orchestration overhead.
+- `agentic continue` resumes an active solo sprint or starts the next solo slice when no sprint is active.
+- Solo default delivery is `phase-pr`: one PR can close multiple linked issues while preserving issue-level history.
+
 ## What We Built
 
 Human operation layer:
@@ -38,6 +45,8 @@ Human operation layer:
 - `agentic slice finalize`: tests + optional commit + PR/handoff + move issue to Review.
 - `agentic pr merge`: merge PR + move issue to Done + cleanup.
 - `agentic pr loop`: structured PR feedback rounds with comment templates.
+- `agentic solo *`: single-agent sprint lifecycle (`start`, `resume`, `checkpoint`, `finalize`).
+- `.claude/skills/agentic-solo-operator`: skill for autonomous solo-sprint operation via CLI.
 
 Execution tracking layer:
 
@@ -64,6 +73,9 @@ Session completion automation:
 - It pushes branch, opens/assigns PR, posts issue handoff summary, and stores local handoff metadata.
 - `scripts/cleanup-slice-worktree.sh` standardizes post-merge cleanup of local worktrees and branches.
 - `agentic pr loop` standardizes pre-merge triage for review comments, CI failures, and merge conflicts.
+- `agentic solo add-issues` standardizes adding more phase issues into an active solo sprint/PR.
+- `agentic solo checkpoint` standardizes sprint progress checkpoints and issue commentary.
+- `agentic solo finalize` standardizes PR-ready handoff for single-agent sprints.
 
 Machine-readable contract:
 
@@ -192,6 +204,12 @@ Security:
 - Secrets stay server-side with rotation and least privilege.
 - VPS hardening and abuse controls are part of delivery gates.
 
+Mode selection by phase:
+
+- Early scaffolding / fast iteration: solo mode (lower coordination overhead).
+- Multi-team integration / high parallelism: parallel mode (higher throughput, clearer ownership).
+- In parallel mode, progression is explicit via `session start` (pick next slice), not generic continue.
+
 ## Demo Script for Stakeholders
 
 Use this live demo to show the system in under 10 minutes.
@@ -226,6 +244,15 @@ cd ../idea2real-p0-infra-1
   --done "Implemented infra slice deliverables" \
   --next "Ready for review and merge" \
   --blockers "None"
+```
+
+6. Show solo mode for rapid sprint delivery:
+
+```bash
+agentic solo start --phase P1 --slug api-core --issues "2,3" --json
+agentic solo add-issues --issues "4,5" --json
+agentic solo checkpoint --summary "Skeleton complete" --next "Auth middleware" --blockers "None" --json
+agentic solo finalize --done "Sprint scope complete" --next "Review and merge PR" --blockers "None" --json
 ```
 
 ## Governance Model

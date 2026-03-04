@@ -13,12 +13,19 @@ Node-based local control panel for idea2real agentic development.
 ```bash
 pnpm agentic session start
 pnpm agentic session resume
+pnpm agentic continue
+pnpm agentic solo start --phase P1 --slug api-core --issues "2,3" --delivery-mode phase-pr
+pnpm agentic solo resume
+pnpm agentic solo add-issues --issues "4,5"
+pnpm agentic solo checkpoint --summary "..."
+pnpm agentic solo finalize --done "..."
 pnpm agentic setup bootstrap-gh
 pnpm agentic slice finalize
 pnpm agentic pr loop
 pnpm agentic pr merge
 pnpm agentic cleanup worktree
 pnpm agentic pm seed-issues
+pnpm agentic pm next-phase --phase P2
 pnpm agentic doctor
 pnpm agentic ui dashboard
 ```

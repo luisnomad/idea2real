@@ -1,8 +1,11 @@
 import { runCommand } from "../../adapters/exec.js";
 import type { AppConfig, CommandResult } from "../../types/contracts.js";
 import { askConfirm, askSelect } from "../../ui/clack/prompts.js";
+import { note } from "../../ui/clack/prompts.js";
 import { ok } from "../command-utils.js";
 import { listLocalSliceWorktrees } from "../discovery/slices.js";
+import { resolveIssueBySlice } from "../github.js";
+import { moveIssueToProjectStatus } from "../status-moves.js";
 
 export interface SessionResumeOptions {
   slice?: string;
@@ -31,9 +34,25 @@ export async function runSessionResume(config: AppConfig, options: SessionResume
 
   result.artifacts.branch = target.branch;
   result.artifacts.worktree = target.path;
+  const issue = await resolveIssueBySlice(config.repo, target.sliceId);
+  if (issue) {
+    try {
+      await moveIssueToProjectStatus({
+        owner: config.project.owner,
+        projectNumber: config.project.number,
+        statusFieldName: config.project.statusFieldName,
+        issueUrl: issue.url,
+        statusName: "In Progress",
+      });
+    } catch (error) {
+      note(`Could not move issue to In Progress: ${(error as Error).message}`);
+    }
+    result.artifacts.issue = issue.number;
+  }
 
   const shouldEnter = options.enter ?? (!config.nonInteractive && (await askConfirm({ message: "Enter worktree shell now?", initialValue: true })));
   if (shouldEnter) {
+    note(`Opening shell in: ${target.path}`);
     const shell = process.env.SHELL || "bash";
     await runCommand(shell, ["-l"], { cwd: target.path, inherit: true, reject: false });
   }
