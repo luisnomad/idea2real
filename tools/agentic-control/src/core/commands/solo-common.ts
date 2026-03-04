@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AppConfig } from "../../types/contracts.js";
 import { runGh } from "../../adapters/gh.js";
@@ -100,6 +101,8 @@ export async function writeSoloKickoffPrompt(params: {
 }): Promise<string> {
   const dir = join(params.repoRoot, ".sessions", "solo");
   await mkdir(dir, { recursive: true });
+  const pmPromptFile = join(params.repoRoot, ".sessions", "pm", `next-phase-${params.phase}.md`);
+  const hasPmPrompt = await fileExists(pmPromptFile);
 
   const kickoffFile = join(dir, `kickoff-${params.phase}-${params.slug}.md`);
   const issueLines =
@@ -111,6 +114,10 @@ export async function writeSoloKickoffPrompt(params: {
     `You are operating in SOLO sprint mode for ${params.phase}.`,
     "",
     `Branch: ${params.branch}`,
+    "",
+    "Read first:",
+    "- Read each linked issue body and extract exact acceptance criteria.",
+    ...(hasPmPrompt ? [`- Read PM planning context: ${pmPromptFile}`] : []),
     "",
     "Sprint scope issues:",
     ...issueLines,
@@ -141,4 +148,13 @@ export async function writeSoloKickoffPrompt(params: {
 
   await writeFile(kickoffFile, body, "utf8");
   return kickoffFile;
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }

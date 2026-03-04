@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@idea2real/contracts": "workspace:*",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@tanstack/react-query": "^5.90.21",
