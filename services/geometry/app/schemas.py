@@ -2,12 +2,25 @@
 
 from enum import Enum
 from typing import Optional
+from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class CamelModel(BaseModel):
+    """Base model that serializes to camelCase to match TypeScript contracts."""
+
+    model_config = ConfigDict(
+        alias_generator=lambda s: "".join(
+            w.capitalize() if i else w for i, w in enumerate(s.split("_"))
+        ),
+        populate_by_name=True,
+    )
 
 
 class HealthResponse(BaseModel):
     status: str = "ok"
+    version: str = "0.0.0"
 
 
 class CleanupOperation(str, Enum):
@@ -20,14 +33,14 @@ class CleanupOperation(str, Enum):
     scale = "scale"
 
 
-class CleanupParams(BaseModel):
-    voxel_size: Optional[float] = None
-    target_faces: Optional[int] = None
-    scale_factor: Optional[float] = None
+class CleanupParams(CamelModel):
+    voxel_size: Optional[float] = Field(default=None, gt=0)
+    target_faces: Optional[int] = Field(default=None, gt=0)
+    scale_factor: Optional[float] = Field(default=None, gt=0)
 
 
-class CleanupRequest(BaseModel):
-    model_id: str
+class CleanupRequest(CamelModel):
+    model_id: UUID
     operations: list[CleanupOperation]
     params: Optional[CleanupParams] = None
 
@@ -39,7 +52,7 @@ class CleanupRequest(BaseModel):
         return v
 
 
-class ErrorDetail(BaseModel):
+class ErrorDetail(CamelModel):
     code: str
     message: str
     request_id: Optional[str] = None

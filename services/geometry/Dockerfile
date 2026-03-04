@@ -3,9 +3,12 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY pyproject.toml .
+COPY app/ app/
 RUN pip install --no-cache-dir .
 
-COPY app/ app/
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 

@@ -6,12 +6,14 @@ from app.main import app
 
 client = TestClient(app)
 
+VALID_UUID = "550e8400-e29b-41d4-a716-446655440000"
+
 
 def test_cleanup_returns_501_not_implemented() -> None:
     response = client.post(
         "/cleanup",
         json={
-            "model_id": "550e8400-e29b-41d4-a716-446655440000",
+            "modelId": VALID_UUID,
             "operations": ["remove_doubles"],
         },
     )
@@ -25,22 +27,21 @@ def test_cleanup_includes_request_id_header() -> None:
     response = client.post(
         "/cleanup",
         json={
-            "model_id": "550e8400-e29b-41d4-a716-446655440000",
+            "modelId": VALID_UUID,
             "operations": ["voxel_remesh", "decimate"],
         },
     )
-    assert "request-id" in response.headers
+    assert "x-request-id" in response.headers
 
 
 def test_cleanup_rejects_empty_operations() -> None:
     response = client.post(
         "/cleanup",
         json={
-            "model_id": "550e8400-e29b-41d4-a716-446655440000",
+            "modelId": VALID_UUID,
             "operations": [],
         },
     )
-    # FastAPI returns 422 for validation errors
     assert response.status_code == 422
 
 
@@ -48,8 +49,31 @@ def test_cleanup_rejects_invalid_operation() -> None:
     response = client.post(
         "/cleanup",
         json={
-            "model_id": "550e8400-e29b-41d4-a716-446655440000",
+            "modelId": VALID_UUID,
             "operations": ["magic_smooth"],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_cleanup_rejects_invalid_uuid() -> None:
+    response = client.post(
+        "/cleanup",
+        json={
+            "modelId": "not-a-uuid",
+            "operations": ["remove_doubles"],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_cleanup_rejects_negative_voxel_size() -> None:
+    response = client.post(
+        "/cleanup",
+        json={
+            "modelId": VALID_UUID,
+            "operations": ["voxel_remesh"],
+            "params": {"voxelSize": -1.0},
         },
     )
     assert response.status_code == 422
@@ -59,9 +83,9 @@ def test_cleanup_accepts_optional_params() -> None:
     response = client.post(
         "/cleanup",
         json={
-            "model_id": "550e8400-e29b-41d4-a716-446655440000",
+            "modelId": VALID_UUID,
             "operations": ["voxel_remesh"],
-            "params": {"voxel_size": 5.0},
+            "params": {"voxelSize": 5.0},
         },
     )
     assert response.status_code == 501
