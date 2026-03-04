@@ -257,6 +257,8 @@ async function ensureKickoffPrompt(params: {
     "Rules:",
     "- Follow AGENTS.md, CONTRIBUTING.md, docs/project/LOCAL_PARALLEL_WORKFLOW.md.",
     "- Touch only allowed paths for this slice.",
+    "- Optional sub-agents are allowed only with non-overlapping file ownership inside this slice.",
+    "- If delegating, split by explicit path groups and integrate sub-agent outputs sequentially.",
     "- Use meaningful TDD (Given/When/Then -> failing test -> minimal fix -> refactor).",
     "- Keep commits atomic and include slice ID in commit message.",
     "",

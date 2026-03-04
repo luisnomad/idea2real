@@ -99,6 +99,13 @@ Use solo mode when one LLM should drive a whole sprint quickly (no worktree orch
 
 Default delivery mode is `phase-pr`: one PR can cover multiple linked issues in the same phase.
 
+Important nuance: "solo agent" can still orchestrate sub-agents.
+
+- This is allowed and expected for throughput.
+- Keep ownership non-overlapping (split by issue and explicit path groups).
+- Integrate sub-agent outputs sequentially on the solo branch.
+- Never assign the same file group to two sub-agents in the same round.
+
 Lifecycle:
 
 1. `agentic solo start` (creates/checkout sprint branch from `main`, writes kickoff file, sets issues to `In Progress`)

@@ -33,6 +33,18 @@ Rule: only one agent owns database migrations at a time.
 
 For local runs, each active session uses its own worktree and branch (never shared).
 
+## Solo-Orchestrator Pattern
+
+When using solo mode (`phase-pr`), one orchestrator agent may delegate work to sub-agents.
+
+Rules:
+
+- Delegate by issue or explicit path group only.
+- Keep sub-agent path ownership disjoint in each execution round.
+- Integrate sub-agent outputs sequentially on the same solo branch.
+- If overlap is required, serialize ownership (one sub-agent at a time).
+- Keep issue-level traceability even when one PR covers multiple issues.
+
 ## Integration Cadence
 
 - Daily contract sync window for `packages/contracts`.
