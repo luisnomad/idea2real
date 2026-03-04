@@ -46,7 +46,10 @@ idea2real/
 │   └── ARCHITECTURE.md     # Architecture decisions & technical context
 ├── prompts/                # Prompt templates for image generation
 ├── poc/                    # Proof-of-concept results (DeLorean prints)
-├── scripts/                # Utility scripts (comparison, generation)
+├── scripts/                # Utility scripts + workflow automation
+├── tools/
+│   └── agentic-control/    # Node/Clack control panel for local agentic workflow
+├── agentic.sh              # Human operator entrypoint (Node shim + legacy fallback)
 └── .claude/skills/         # Claude Code skill definitions
 ```
 
@@ -54,6 +57,10 @@ idea2real/
 
 - **[Architecture & Decisions](docs/ARCHITECTURE.md)** — why things are the way they are, what options exist, Blender limitations
 - **[CLAUDE.md](CLAUDE.md)** — project context for AI assistants working on this codebase
+- **[HUMANS.md](HUMANS.md)** — human-in-the-loop guide for starting and running local agentic sessions
+- **[Agentic Control Panel](docs/project/AGENTIC_CONTROL_PANEL.md)** — Node/Clack command surface and JSON contract
+- **[Agentic Showcase](docs/project/COMPANY_AGENTIC_SHOWCASE.md)** — company-facing overview of the orchestration system
+- **[Security Baseline](docs/project/SECURITY_BASELINE.md)** — production security controls for VPS deployment and AI provider integration
 
 ## Status
 

@@ -1,0 +1,143 @@
+name: PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Automated checks that run on every PR
+  checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    if: "!github.event.pull_request.draft"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check PR template compliance
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            const checks = [
+              { name: 'Slice ID', pattern: /## Slice\s*\n\s*\S+/i },
+              { name: 'Behavior Contract', pattern: /Given .+\nWhen .+\nThen .+/i },
+              { name: 'Risk Note', pattern: /## Risk Note\s*\n\s*\S+/i },
+            ];
+
+            const missing = checks.filter(c => !c.pattern.test(body));
+
+            if (missing.length > 0) {
+              const names = missing.map(c => c.name).join(', ');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `⚠️ **PR template check**: Missing sections: ${names}\n\nPlease fill in the PR template completely. See \`CONTRIBUTING.md\` for requirements.`
+              });
+            }
+
+      - name: Check PR size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+
+            const netChange = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+
+            if (netChange > 500) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `📏 **PR size warning**: ${netChange} lines changed (target: under 500). Consider splitting into smaller PRs if possible.`
+              });
+            }
+
+      - name: Check ownership boundaries
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            // Extract slice domain from PR body
+            const domainMap = {
+              'WEB': ['apps/web/'],
+              'API': ['apps/api/'],
+              'GEOM': ['services/geometry/'],
+              'CONTRACTS': ['packages/contracts/'],
+              'UI': ['packages/ui/'],
+              'INFRA': ['.github/', 'scripts/', 'docker-compose', 'deploy/', 'infra/', 'monitoring/', 'docs/'],
+            };
+
+            // Try to extract slice ID
+            const sliceMatch = body.match(/P\d+-(\w+)-\d+/);
+            if (!sliceMatch) return; // Can't check without slice ID
+
+            const domain = sliceMatch[1];
+            const allowedPaths = domainMap[domain];
+            if (!allowedPaths) return; // Unknown domain
+
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+
+            // Files that are always OK to touch
+            const alwaysAllowed = ['package.json', 'tsconfig.json', '.gitignore', 'README.md'];
+
+            const violations = files
+              .map(f => f.filename)
+              .filter(f => !allowedPaths.some(p => f.startsWith(p)))
+              .filter(f => !alwaysAllowed.some(a => f.endsWith(a)));
+
+            if (violations.length > 0) {
+              const list = violations.map(f => `- \`${f}\``).join('\n');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `🚧 **Ownership boundary warning**: This PR (${domain} slice) modifies files outside its declared paths:\n\n${list}\n\nIf intentional, update the contract first. See \`AGENTS.md\` for ownership rules.`
+              });
+            }
+
+  # AI-powered code review — uncomment when you have a Claude API key
+  # ai-review:
+  #   name: AI Code Review
+  #   runs-on: ubuntu-latest
+  #   if: "!github.event.pull_request.draft"
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #
+  #     - name: Get PR diff
+  #       id: diff
+  #       run: |
+  #         git fetch origin ${{ github.event.pull_request.base.ref }}
+  #         DIFF=$(git diff origin/${{ github.event.pull_request.base.ref }}...HEAD)
+  #         echo "diff<<EOF" >> $GITHUB_OUTPUT
+  #         echo "$DIFF" >> $GITHUB_OUTPUT
+  #         echo "EOF" >> $GITHUB_OUTPUT
+  #
+  #     - name: AI Review
+  #       uses: actions/github-script@v7
+  #       env:
+  #         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  #       with:
+  #         script: |
+  #           // Call Claude API with the diff and project rules
+  #           // Post review comments back to the PR
+  #           // See docs/project/AGENT_REVIEW_SETUP.md for implementation
+  #           console.log('AI review placeholder — configure ANTHROPIC_API_KEY secret to enable');

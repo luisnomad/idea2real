@@ -2,11 +2,39 @@
 
 ## Project Overview
 
-A Blender addon (`nb3dp_addon.py`) that turns images into 3D-printable STLs. The addon is standalone — no LLM needed at runtime. Users drive the full pipeline from a sidebar panel in Blender.
+idea2real has two components:
 
-**Pipeline:** Image (upload or generate) → Hunyuan3D v3 (fal.ai) → GLB import → Auto cleanup → Scale → STL export
+1. **Blender Addon** (`nb3dp_addon.py`) — standalone addon that turns images into 3D-printable STLs from Blender's sidebar. No LLM needed at runtime.
+2. **Web App** (in development) — production web platform for the same workflow, with prompt tools, 3D preview, model gallery, and print prep features.
 
-**Architecture & decision log:** See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for why things are the way they are, what alternatives were considered, and Blender API limitations to know about.
+**Addon pipeline:** Image (upload or generate) → Hunyuan3D v3 (fal.ai) → GLB import → Auto cleanup → Scale → STL export
+
+**Architecture & decision log:** See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for addon architecture and Blender API limitations.
+
+## Web App Development
+
+The web app is built by multiple agents working in parallel. **All agents must read `AGENTS.md`** for:
+
+- Ownership boundaries (who touches what paths)
+- Branch and PR conventions
+- Contract-first workflow
+- TDD requirements
+
+Execution model is local-first: parallel Codex threads + Claude Code sessions using separate git worktrees.
+
+Key documents:
+
+- `AGENTS.md` — universal agent rules (Codex, Claude Code, Copilot)
+- `docs/project/DEVELOPMENT_PLAN.md` — phase roadmap
+- `docs/project/PARALLEL_AGENT_EXECUTION.md` — merge strategy
+- `docs/project/LOCAL_PARALLEL_WORKFLOW.md` — local worktree/session operations
+- `scripts/new-slice-worktree.sh` — one-command branch/worktree/env setup
+- `scripts/start-agent-session.sh` — interactive human launcher (preflight + slice discovery + kickoff)
+- `scripts/gh-bootstrap.sh` — one-time gh auth/scope/repo/project setup
+- `docs/project/MEANINGFUL_TDD_PLAYBOOK.md` — TDD workflow
+- `docs/project/FRONTEND_UI_DIRECTION.md` — UI specs
+- `docs/project/SECURITY_BASELINE.md` — security controls for VPS deployment and provider integrations
+- `CONTRIBUTING.md` — contribution rules for humans and agents
 
 ## Core Concept
 

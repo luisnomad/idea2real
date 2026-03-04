@@ -1,5 +1,9 @@
 .env
 **/.env
+.env.local
+**/.env.local
+.sessions/
+**/.sessions/
 .DS_Store
 **/.DS_Store
 
@@ -15,17 +19,8 @@ __pycache__/
 *.egg-info/
 .ruff_cache/
 
-# Local env overrides
-.env.local
-
-# Session state (kickoffs, handoffs - managed by orchestrator)
-.sessions/
-
-# Node / web app
+# Node/TS
 node_modules/
+**/node_modules/
 dist/
-.vite/
-
-# Local env and session files
-.env.local
-.sessions/
+**/dist/

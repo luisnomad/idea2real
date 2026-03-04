@@ -1,0 +1,76 @@
+name: "Parallel Slice"
+description: "A work slice for parallel agent execution"
+labels: ["slice"]
+body:
+  - type: input
+    id: slice-id
+    attributes:
+      label: Slice ID
+      description: "Format: P{phase}-{DOMAIN}-{n}"
+      placeholder: "P0-WEB-1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      options:
+        - Frontend (apps/web)
+        - Core API (apps/api)
+        - Geometry (services/geometry)
+        - Contracts (packages/contracts)
+        - UI Kit (packages/ui)
+        - Infra (.github, scripts, docker)
+    validations:
+      required: true
+
+  - type: input
+    id: depends-on
+    attributes:
+      label: Depends On
+      description: "Slice IDs this work depends on (comma-separated)"
+      placeholder: "P0-CONTRACTS-1"
+
+  - type: textarea
+    id: paths
+    attributes:
+      label: Paths Touched
+      description: "Explicit file/directory paths this slice will modify"
+      placeholder: |
+        apps/web/src/App.tsx
+        apps/web/src/routes/
+        apps/web/src/components/shell/
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior-contract
+    attributes:
+      label: Behavior Contract
+      description: "Given/When/Then format"
+      placeholder: |
+        Given a user opens the app
+        When the page loads
+        Then they see the app shell with navigation and an empty workspace
+        And the routing resolves to the default dashboard view
+    validations:
+      required: true
+
+  - type: textarea
+    id: test-plan
+    attributes:
+      label: Test Plan
+      description: "Exact test files to add or update"
+      placeholder: |
+        apps/web/src/__tests__/App.test.tsx
+        apps/web/src/__tests__/routing.test.tsx
+
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      description: "Concrete user-visible result"
+      placeholder: "App loads with shell layout, left nav renders all sections, routes resolve without errors"
+    validations:
+      required: true

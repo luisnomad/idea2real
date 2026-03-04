@@ -13,12 +13,18 @@
 #   REPO=luisnomad/idea2real
 #   BASE_BRANCH=main
 #   PR_ASSIGNEE=@me
+#   PROJECT_OWNER=luisnomad
+#   PROJECT_NUMBER=1
+#   STATUS_FIELD_NAME=Status
 
 set -euo pipefail
 
 REPO=""
 BASE_BRANCH="${BASE_BRANCH:-main}"
 PR_ASSIGNEE="${PR_ASSIGNEE:-@me}"
+PROJECT_OWNER="${PROJECT_OWNER:-}"
+PROJECT_NUMBER="${PROJECT_NUMBER:-1}"
+STATUS_FIELD_NAME="${STATUS_FIELD_NAME:-Status}"
 SLICE_ID=""
 ISSUE_NUMBER=""
 DONE_TEXT=""
@@ -27,6 +33,8 @@ BLOCKERS_TEXT="None"
 NO_PUSH="false"
 NO_PR="false"
 NO_ISSUE_COMMENT="false"
+NO_PROJECT_STATUS="false"
+PROJECT_STATUS_UPDATED="false"
 
 usage() {
   cat <<'EOF'
@@ -39,6 +47,9 @@ Options:
   --repo <owner/name>      Override GitHub repo (auto-detected from origin if omitted)
   --base <branch>          PR base branch (default: main)
   --assignee <user>        PR assignee (default: @me)
+  --project-owner <owner>  GitHub Project owner (default: repo owner)
+  --project-number <num>   GitHub Project number (default: 1)
+  --status-field-name <n>  Project status field name (default: Status)
   --slice <slice-id>       Override inferred slice (example: P0-INFRA-1)
   --issue <number>         Override resolved issue number
   --done <text>            Handoff "Done" summary
@@ -47,6 +58,7 @@ Options:
   --no-push                Skip git push
   --no-pr                  Skip PR creation
   --no-issue-comment       Skip issue handoff comment
+  --no-project-status      Skip project status move to Review
   -h, --help               Show help
 EOF
 }
@@ -54,6 +66,10 @@ EOF
 fail() {
   echo "Error: $*" >&2
   exit 1
+}
+
+warn() {
+  echo "Warning: $*" >&2
 }
 
 require_tools() {
@@ -77,6 +93,10 @@ detect_repo() {
 
   REPO="$(echo "${remote_url}" | sed -E 's#^git@github.com:##; s#^https://github.com/##; s#\.git$##')"
   [[ -n "${REPO}" ]] || fail "Could not parse repo from origin URL."
+
+  if [[ -z "${PROJECT_OWNER}" ]]; then
+    PROJECT_OWNER="${REPO%%/*}"
+  fi
 }
 
 detect_branch() {
@@ -106,26 +126,41 @@ ensure_clean_worktree() {
 }
 
 resolve_issue() {
-  local issue_line=""
   if [[ -n "${ISSUE_NUMBER}" ]]; then
-    issue_line="$(gh issue view "${ISSUE_NUMBER}" --repo "${REPO}" --json number,title,url --template '{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{.url}}')"
+    local issue_line=""
+    issue_line="$(gh issue view "${ISSUE_NUMBER}" --repo "${REPO}" --json number,title,url --template '{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{.url}}' 2>/dev/null || true)"
+    if [[ -n "${issue_line}" ]]; then
+      IFS=$'\t' read -r ISSUE_NUMBER ISSUE_TITLE ISSUE_URL <<<"${issue_line}"
+    else
+      ISSUE_NUMBER=""
+      ISSUE_TITLE=""
+      ISSUE_URL=""
+    fi
   else
-    issue_line="$(gh issue list \
+    ISSUE_NUMBER="$(gh issue list \
       --repo "${REPO}" \
       --label "slice" \
       --state "all" \
       --search "\"${SLICE_ID}:\" in:title" \
       --limit 1 \
-      --json number,title,url \
-      --template '{{with index . 0}}{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{.url}}{{end}}')"
-  fi
-
-  if [[ -n "${issue_line}" ]]; then
-    IFS=$'\t' read -r ISSUE_NUMBER ISSUE_TITLE ISSUE_URL <<<"${issue_line}"
-  else
-    ISSUE_NUMBER=""
-    ISSUE_TITLE=""
-    ISSUE_URL=""
+      --json number \
+      --jq '.[0].number // empty' 2>/dev/null || true)"
+    ISSUE_TITLE="$(gh issue list \
+      --repo "${REPO}" \
+      --label "slice" \
+      --state "all" \
+      --search "\"${SLICE_ID}:\" in:title" \
+      --limit 1 \
+      --json title \
+      --jq '.[0].title // empty' 2>/dev/null || true)"
+    ISSUE_URL="$(gh issue list \
+      --repo "${REPO}" \
+      --label "slice" \
+      --state "all" \
+      --search "\"${SLICE_ID}:\" in:title" \
+      --limit 1 \
+      --json url \
+      --jq '.[0].url // empty' 2>/dev/null || true)"
   fi
 }
 
@@ -146,7 +181,7 @@ push_branch() {
 }
 
 ensure_pr() {
-  PR_URL="$(gh pr list --repo "${REPO}" --head "${CURRENT_BRANCH}" --state open --json url --template '{{with index . 0}}{{.url}}{{end}}')"
+  PR_URL="$(gh pr list --repo "${REPO}" --head "${CURRENT_BRANCH}" --state open --json url --jq '.[0].url // empty' 2>/dev/null || true)"
   if [[ -n "${PR_URL}" ]]; then
     return 0
   fi
@@ -234,20 +269,112 @@ write_local_handoff() {
   echo "Local handoff written: ${handoff_file}"
 }
 
+set_project_status_review() {
+  [[ "${NO_PROJECT_STATUS}" == "true" ]] && return 0
+  [[ -n "${ISSUE_URL}" ]] || return 0
+
+  if ! command -v jq >/dev/null 2>&1; then
+    warn "jq is not installed; skipping project status update."
+    return 0
+  fi
+
+  if ! gh project view "${PROJECT_NUMBER}" --owner "${PROJECT_OWNER}" >/dev/null 2>&1; then
+    warn "Cannot access project ${PROJECT_OWNER}#${PROJECT_NUMBER}; skipping project status update."
+    return 0
+  fi
+
+  local project_id fields_json status_field_id review_option_id items_json item_id add_json
+  project_id="$(gh project view "${PROJECT_NUMBER}" --owner "${PROJECT_OWNER}" --format json --jq '.id // empty' 2>/dev/null || true)"
+  if [[ -z "${project_id}" ]]; then
+    warn "Could not resolve project id for ${PROJECT_OWNER}#${PROJECT_NUMBER}; skipping status update."
+    return 0
+  fi
+
+  fields_json="$(gh project field-list "${PROJECT_NUMBER}" --owner "${PROJECT_OWNER}" --format json 2>/dev/null || true)"
+  if [[ -z "${fields_json}" ]]; then
+    warn "Could not read project fields; skipping status update."
+    return 0
+  fi
+
+  status_field_id="$(echo "${fields_json}" | jq -r --arg n "${STATUS_FIELD_NAME}" '
+    if type=="array" then
+      (map(select(.name==$n))[0].id // "")
+    elif has("fields") then
+      (.fields | map(select(.name==$n))[0].id // "")
+    else
+      ""
+    end
+  ' 2>/dev/null || true)"
+  if [[ -z "${status_field_id}" ]]; then
+    warn "Status field '${STATUS_FIELD_NAME}' not found; skipping status update."
+    return 0
+  fi
+
+  review_option_id="$(echo "${fields_json}" | jq -r --arg n "${STATUS_FIELD_NAME}" '
+    if type=="array" then
+      (map(select(.name==$n))[0].options // [] | map(select(.name=="Review"))[0].id // "")
+    elif has("fields") then
+      (.fields | map(select(.name==$n))[0].options // [] | map(select(.name=="Review"))[0].id // "")
+    else
+      ""
+    end
+  ' 2>/dev/null || true)"
+  if [[ -z "${review_option_id}" ]]; then
+    warn "Review option not found in '${STATUS_FIELD_NAME}'; skipping status update."
+    return 0
+  fi
+
+  items_json="$(gh project item-list "${PROJECT_NUMBER}" --owner "${PROJECT_OWNER}" --limit 500 --format json 2>/dev/null || true)"
+  item_id="$(echo "${items_json}" | jq -r --arg u "${ISSUE_URL}" '
+    if type=="array" then
+      (map(select((.content.url // "")==$u))[0].id // "")
+    elif has("items") then
+      (.items | map(select((.content.url // "")==$u))[0].id // "")
+    else
+      ""
+    end
+  ' 2>/dev/null || true)"
+
+  if [[ -z "${item_id}" ]]; then
+    add_json="$(gh project item-add "${PROJECT_NUMBER}" --owner "${PROJECT_OWNER}" --url "${ISSUE_URL}" --format json 2>/dev/null || true)"
+    item_id="$(echo "${add_json}" | jq -r '.id // .item.id // empty' 2>/dev/null || true)"
+  fi
+
+  if [[ -z "${item_id}" ]]; then
+    warn "Could not resolve project item for issue ${ISSUE_URL}; skipping status update."
+    return 0
+  fi
+
+  if ! gh project item-edit \
+    --id "${item_id}" \
+    --project-id "${project_id}" \
+    --field-id "${status_field_id}" \
+    --single-select-option-id "${review_option_id}" >/dev/null 2>&1; then
+    warn "Failed to set project status to Review for ${ISSUE_URL}."
+    return 0
+  fi
+
+  PROJECT_STATUS_UPDATED="true"
+}
+
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --repo)      [[ $# -lt 2 ]] && fail "--repo requires a value";      REPO="$2"; shift 2 ;;
-      --base)      [[ $# -lt 2 ]] && fail "--base requires a value";      BASE_BRANCH="$2"; shift 2 ;;
-      --assignee)  [[ $# -lt 2 ]] && fail "--assignee requires a value";  PR_ASSIGNEE="$2"; shift 2 ;;
-      --slice)     [[ $# -lt 2 ]] && fail "--slice requires a value";     SLICE_ID="$2"; shift 2 ;;
-      --issue)     [[ $# -lt 2 ]] && fail "--issue requires a value";     ISSUE_NUMBER="$2"; shift 2 ;;
-      --done)      [[ $# -lt 2 ]] && fail "--done requires a value";      DONE_TEXT="$2"; shift 2 ;;
-      --next)      [[ $# -lt 2 ]] && fail "--next requires a value";      NEXT_TEXT="$2"; shift 2 ;;
-      --blockers)  [[ $# -lt 2 ]] && fail "--blockers requires a value";  BLOCKERS_TEXT="$2"; shift 2 ;;
+      --repo) REPO="$2"; shift 2 ;;
+      --base) BASE_BRANCH="$2"; shift 2 ;;
+      --assignee) PR_ASSIGNEE="$2"; shift 2 ;;
+      --project-owner) PROJECT_OWNER="$2"; shift 2 ;;
+      --project-number) PROJECT_NUMBER="$2"; shift 2 ;;
+      --status-field-name) STATUS_FIELD_NAME="$2"; shift 2 ;;
+      --slice) SLICE_ID="$2"; shift 2 ;;
+      --issue) ISSUE_NUMBER="$2"; shift 2 ;;
+      --done) DONE_TEXT="$2"; shift 2 ;;
+      --next) NEXT_TEXT="$2"; shift 2 ;;
+      --blockers) BLOCKERS_TEXT="$2"; shift 2 ;;
       --no-push) NO_PUSH="true"; shift ;;
       --no-pr) NO_PR="true"; shift ;;
       --no-issue-comment) NO_ISSUE_COMMENT="true"; shift ;;
+      --no-project-status) NO_PROJECT_STATUS="true"; shift ;;
       -h|--help) usage; exit 0 ;;
       *) fail "Unknown argument: $1" ;;
     esac
@@ -267,6 +394,7 @@ main() {
   ensure_pr
   build_handoff_body
   comment_issue
+  set_project_status_review
   write_local_handoff
 
   echo
@@ -283,7 +411,9 @@ main() {
   else
     echo "PR: not created (--no-pr)."
   fi
+  if [[ "${PROJECT_STATUS_UPDATED}" == "true" ]]; then
+    echo "Project status: moved to Review (${PROJECT_OWNER}#${PROJECT_NUMBER})"
+  fi
 }
 
 main "$@"
-
