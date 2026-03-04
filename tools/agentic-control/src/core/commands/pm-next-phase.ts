@@ -73,9 +73,10 @@ export async function runPmNextPhase(config: AppConfig, options: PmNextPhaseOpti
     "1) Review docs/project/DEVELOPMENT_PLAN.md for next unfinished outcomes.",
     "2) Propose missing slices by domain (frontend, api, geometry, contracts, infra, security).",
     "3) For each slice define: Depends On, Paths Touched, Given/When/Then, Test Plan, Definition of Done.",
-    "4) Create/update issues via gh and place them into Backlog/Ready.",
-    "5) Ensure at least 3 unassigned Ready slices after updates.",
-    "6) Output: created issue URLs, duplicates skipped, final Ready count, recommended next 3 slices.",
+    "4) Make slices parallel-safe for sub-agents: disjoint `Paths Touched`, explicit dependency edges, and no shared file ownership in the same round.",
+    "5) Create/update issues via gh and place them into Backlog/Ready.",
+    "6) Ensure at least 3 unassigned Ready slices after updates.",
+    "7) Output: created issue URLs, duplicates skipped, final Ready count, recommended next 3 slices.",
     "",
   ].join("\n");
 

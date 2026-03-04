@@ -105,6 +105,7 @@ Parity-first hybrid:
 - Commands: `solo start/resume/add-issues/checkpoint/finalize`.
 - Default delivery mode: `phase-pr` (single PR with multiple linked issues).
 - `continue` resumes active solo sprint or starts the next solo slice if no active solo sprint exists.
+- Solo prompts explicitly allow sub-agent delegation with non-overlapping file ownership and sequential integration.
 - Best for rapid scaffolding and one-agent sprints.
 - Supports autonomous operation with repo-local skill:
   - `.claude/skills/agentic-solo-operator/SKILL.md`

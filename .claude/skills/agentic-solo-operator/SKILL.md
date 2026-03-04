@@ -21,6 +21,8 @@ Use this skill when the user wants one agent to drive a whole sprint with minima
 2. Implement sprint scope on solo branch:
 - Branch naming: `codex/solo-<phase>-<slug>`
 - Use meaningful TDD and atomic commits.
+- Sub-agents may be used, but only with explicit non-overlapping ownership (by issue or path group).
+- Never run two sub-agents against the same file group in the same round; integrate outputs sequentially.
 
 3. Checkpoint regularly:
 - `agentic solo checkpoint --summary "..." --next "..." --blockers "None" --json`

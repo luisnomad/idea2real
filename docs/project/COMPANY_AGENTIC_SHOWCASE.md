@@ -29,6 +29,7 @@ We now support two execution modes:
 - Solo mode: one agent, one sprint branch, reduced orchestration overhead.
 - `agentic continue` resumes an active solo sprint or starts the next solo slice when no sprint is active.
 - Solo default delivery is `phase-pr`: one PR can close multiple linked issues while preserving issue-level history.
+- Solo orchestrator mode can still delegate to sub-agents safely when issues/slices have disjoint path ownership.
 
 ## What We Built
 
@@ -181,6 +182,7 @@ Parallelism with boundaries:
 
 - Multiple sessions can execute simultaneously.
 - Worktree-per-session and branch-per-slice remove edit collisions.
+- In solo mode, sub-agents can be delegated per issue/path group as long as file ownership does not overlap.
 
 Traceability:
 
