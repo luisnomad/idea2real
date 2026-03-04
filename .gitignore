@@ -25,3 +25,7 @@ __pycache__/
 node_modules/
 dist/
 .vite/
+
+# Local env and session files
+.env.local
+.sessions/
