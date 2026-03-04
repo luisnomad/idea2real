@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useLayoutEffect } from 'react'
 import Shell from './components/Shell'
 import AppRoutes from './router'
 import { getSystemTheme, applyTheme, type Theme } from './theme'
 
+// Apply before first paint to avoid flash of unstyled content
+applyTheme(getSystemTheme())
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>(() => getSystemTheme())
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(theme)
   }, [theme])
 

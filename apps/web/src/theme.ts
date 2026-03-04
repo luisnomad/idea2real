@@ -6,6 +6,7 @@ export function getSystemTheme(): Theme {
 }
 
 export function applyTheme(theme: Theme): void {
+  if (typeof document === 'undefined') return
   if (theme === 'dark') {
     document.documentElement.classList.add('dark')
   } else {

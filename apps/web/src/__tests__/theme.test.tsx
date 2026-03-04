@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import App from '../App'
 
 // Given the app respects system theme preference
@@ -11,6 +11,45 @@ import App from '../App'
 describe('Theme toggle', () => {
   beforeEach(() => {
     document.documentElement.classList.remove('dark')
+    // Reset matchMedia to light mode default
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })),
+    })
+  })
+
+  // Given the system prefers dark mode
+  // When the app first renders
+  // Then the "dark" class is applied immediately (no FOUC)
+  it('applies dark class on initial render when system prefers dark', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn((query: string) => ({
+        matches: query === '(prefers-color-scheme: dark)',
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      })),
+    })
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
   it('renders a theme toggle button', () => {
