@@ -148,8 +148,9 @@ export function buildProgram(): Command {
       await runAndEmit(withGlobals(this), (config) => runPmSeedIssues(config, this.opts()));
     });
   addExecutionOptions(pm.command("next-phase"))
-    .description("Generate PM prompt/context for next phase planning")
+    .description("Generate PM prompt/context for next phase planning with standardized slice format")
     .option("--phase <phase>", "Target phase (e.g. P1)")
+    .option("--clean-old", "Remove old next-phase prompt files before generating")
     .action(async function action(this: Command) {
       await runAndEmit(withGlobals(this), (config) => runPmNextPhase(config, this.opts()));
     });

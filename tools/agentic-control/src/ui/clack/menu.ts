@@ -47,7 +47,7 @@ const PARALLEL_ACTIONS: Array<{ value: ActionValue; label: string }> = [
   { value: "pr:merge", label: "PR / Merge and cleanup" },
   { value: "cleanup:worktree", label: "Cleanup / Worktree and branch cleanup" },
   { value: "pm:seed", label: "PM / Seed issues" },
-  { value: "pm:next", label: "PM / Generate next-phase prompt" },
+  { value: "pm:next", label: "PM / Generate next-phase prompt (standardized slices)" },
   { value: "doctor", label: "Diagnostics / Deep doctor checks" },
 ];
 
@@ -60,14 +60,14 @@ const SOLO_ACTIONS: Array<{ value: ActionValue; label: string }> = [
   { value: "solo:finalize", label: "Solo / Finalize sprint PR-ready" },
   { value: "pr:loop", label: "PR / Feedback loop (checks, reviews, conflicts)" },
   { value: "pr:merge", label: "PR / Merge and cleanup" },
-  { value: "pm:next", label: "PM / Generate next-phase prompt" },
+  { value: "pm:next", label: "PM / Generate next-phase prompt (standardized slices)" },
   { value: "doctor", label: "Diagnostics / Deep doctor checks" },
 ];
 
 const OPS_ACTIONS: Array<{ value: ActionValue; label: string }> = [
   { value: "setup:bootstrap", label: "Setup / Bootstrap GitHub auth + project scope" },
   { value: "pm:seed", label: "PM / Seed issues" },
-  { value: "pm:next", label: "PM / Generate next-phase prompt" },
+  { value: "pm:next", label: "PM / Generate next-phase prompt (standardized slices)" },
   { value: "doctor", label: "Diagnostics / Deep doctor checks" },
   { value: "ui:dashboard", label: "UI / Dashboard preview (Phase 2 Ink)" },
 ];

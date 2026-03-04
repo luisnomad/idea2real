@@ -110,6 +110,13 @@ Parity-first hybrid:
 - Supports autonomous operation with repo-local skill:
   - `.claude/skills/agentic-solo-operator/SKILL.md`
 
+`pm next-phase` output:
+
+- Writes `.sessions/pm/next-phase-Pn.md` with current project context.
+- Includes the standardized slice issue format from `AGENTS.md`.
+- Includes a suggested `gh issue create` command flow and label/project placement rules.
+- Supports `--clean-old` to remove stale `next-phase-*.md` prompt files before generating.
+
 ## Phase 2 (Ink)
 
 `agentic ui dashboard` exists as a preview command.

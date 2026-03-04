@@ -26,6 +26,7 @@ pnpm agentic pr merge
 pnpm agentic cleanup worktree
 pnpm agentic pm seed-issues
 pnpm agentic pm next-phase --phase P2
+pnpm agentic pm next-phase --phase P2 --clean-old
 pnpm agentic doctor
 pnpm agentic ui dashboard
 ```

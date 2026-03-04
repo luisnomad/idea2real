@@ -40,6 +40,7 @@ Core actions exposed in the control panel:
 - PR: feedback loop and merge/cleanup.
 - Cleanup: standalone worktree/branch cleanup.
 - PM: seed issue sets and generate next-phase PM prompts.
+  - Next-phase prompt now includes a standardized slice issue template and suggested `gh` issue creation flow.
 - Diagnostics: doctor checks.
 
 Issue status automation is baked in:
@@ -69,6 +70,7 @@ pnpm agentic pr merge
 pnpm agentic cleanup worktree
 pnpm agentic pm seed-issues
 pnpm agentic pm next-phase --phase P2
+pnpm agentic pm next-phase --phase P2 --clean-old
 pnpm agentic doctor --quick
 ```
 
