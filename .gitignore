@@ -14,3 +14,9 @@ __pycache__/
 **/.mypy_cache/
 *.egg-info/
 .ruff_cache/
+
+# Local env overrides
+.env.local
+
+# Session state (kickoffs, handoffs — managed by orchestrator)
+.sessions/
