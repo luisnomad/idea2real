@@ -185,6 +185,7 @@ export function buildProgram(): Command {
     .option("--issues <list>", "Comma-separated issue numbers")
     .option("--branch <name>", "Override branch name")
     .option("--delivery-mode <mode>", "phase-pr|single-issue (default: phase-pr)")
+    .option("--review-mode <mode>", "github-pr|local-agent (default: github-pr)")
     .action(async function action(this: Command) {
       await runAndEmit(withGlobals(this), (config) => runSoloStart(config, this.opts()));
     });
@@ -212,10 +213,12 @@ export function buildProgram(): Command {
       await runAndEmit(withGlobals(this), (config) => runSoloCheckpoint(config, this.opts()));
     });
   addExecutionOptions(solo.command("finalize"))
-    .description("Finalize solo sprint into PR-ready state")
+    .description("Finalize solo sprint (local review handoff or PR publish)")
     .option("--done <text>", "Done summary")
     .option("--next <text>", "Next action")
     .option("--blockers <text>", "Blockers summary")
+    .option("--risk-note <text>", "Risk note for PR template")
+    .option("--behavior-contract <text>", "Behavior contract text (Given/When/Then)")
     .option("--test <cmd>", "Test command")
     .option("--skip-tests", "Skip tests")
     .option("--auto-commit", "Auto-commit dirty tree")
@@ -223,6 +226,7 @@ export function buildProgram(): Command {
     .option("--pr-title <title>", "PR title override")
     .option("--assignee <user>", "PR assignee", "@me")
     .option("--no-issue-comment", "Skip issue comments")
+    .option("--publish", "Publish mode: commit/push/open or update PR")
     .action(async function action(this: Command) {
       await runAndEmit(withGlobals(this), (config) => runSoloFinalize(config, this.opts()));
     });

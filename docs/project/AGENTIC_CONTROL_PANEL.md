@@ -104,6 +104,9 @@ Parity-first hybrid:
 - Single sprint branch, no extra worktree.
 - Commands: `solo start/resume/add-issues/checkpoint/finalize`.
 - Default delivery mode: `phase-pr` (single PR with multiple linked issues).
+- Supports review modes:
+  - `github-pr`: finalize publishes PR directly.
+  - `local-agent`: finalize creates local review handoff first; publish later with `--publish`.
 - `continue` resumes active solo sprint or starts the next solo slice if no active solo sprint exists.
 - Solo prompts explicitly allow sub-agent delegation with non-overlapping file ownership and sequential integration.
 - Best for rapid scaffolding and one-agent sprints.

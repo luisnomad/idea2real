@@ -5,6 +5,7 @@ import { toSlug } from "../utils/text.js";
 export interface SoloState {
   mode: "solo";
   deliveryMode: "phase-pr" | "single-issue";
+  reviewMode: "github-pr" | "local-agent";
   phase: string;
   slug: string;
   branch: string;
@@ -41,6 +42,7 @@ export async function readSoloState(repoRoot: string): Promise<SoloState | null>
     return {
       mode: "solo",
       deliveryMode: parsed.deliveryMode === "single-issue" ? "single-issue" : "phase-pr",
+      reviewMode: parsed.reviewMode === "local-agent" ? "local-agent" : "github-pr",
       phase: parsed.phase ?? "P1",
       slug: parsed.slug ?? "solo-sprint",
       branch: parsed.branch ?? sprintBranchName(parsed.phase ?? "P1", parsed.slug ?? "solo-sprint"),

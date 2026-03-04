@@ -52,6 +52,18 @@ class CleanupRequest(CamelModel):
         return v
 
 
+class CleanupResultResponse(CamelModel):
+    """Cleanup pipeline result with mesh metadata."""
+
+    job_id: UUID
+    model_id: UUID
+    output_storage_key: str
+    vertex_count: int
+    face_count: int
+    is_manifold: bool
+    is_watertight: bool
+
+
 class ErrorDetail(CamelModel):
     code: str
     message: str

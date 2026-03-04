@@ -1,4 +1,4 @@
-"""Given the geometry service starts, when POST /cleanup, then 501 with stub response."""
+"""Given the geometry service, when POST /cleanup, then cleanup runs and returns result."""
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +9,7 @@ client = TestClient(app)
 VALID_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
 
-def test_cleanup_returns_501_not_implemented() -> None:
+def test_cleanup_returns_200_with_result() -> None:
     response = client.post(
         "/cleanup",
         json={
@@ -17,10 +17,12 @@ def test_cleanup_returns_501_not_implemented() -> None:
             "operations": ["remove_doubles"],
         },
     )
-    assert response.status_code == 501
+    assert response.status_code == 200
     body = response.json()
-    assert body["error"]["code"] == "NOT_IMPLEMENTED"
-    assert "not yet implemented" in body["error"]["message"].lower()
+    assert "vertexCount" in body
+    assert "faceCount" in body
+    assert "isManifold" in body
+    assert "isWatertight" in body
 
 
 def test_cleanup_includes_request_id_header() -> None:
@@ -28,9 +30,10 @@ def test_cleanup_includes_request_id_header() -> None:
         "/cleanup",
         json={
             "modelId": VALID_UUID,
-            "operations": ["voxel_remesh", "decimate"],
+            "operations": ["remove_doubles"],
         },
     )
+    assert response.status_code == 200
     assert "x-request-id" in response.headers
 
 
@@ -73,7 +76,7 @@ def test_cleanup_rejects_negative_voxel_size() -> None:
         "/cleanup",
         json={
             "modelId": VALID_UUID,
-            "operations": ["voxel_remesh"],
+            "operations": ["remove_doubles"],
             "params": {"voxelSize": -1.0},
         },
     )
@@ -85,8 +88,10 @@ def test_cleanup_accepts_optional_params() -> None:
         "/cleanup",
         json={
             "modelId": VALID_UUID,
-            "operations": ["voxel_remesh"],
-            "params": {"voxelSize": 5.0},
+            "operations": ["scale"],
+            "params": {"scaleFactor": 2.0},
         },
     )
-    assert response.status_code == 501
+    assert response.status_code == 200
+    body = response.json()
+    assert body["vertexCount"] > 0

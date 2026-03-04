@@ -36,6 +36,7 @@ export async function runSoloResume(config: AppConfig, options: SoloResumeOption
       slug: state.slug,
       branch: state.branch,
       deliveryMode: state.deliveryMode,
+      reviewMode: state.reviewMode,
       issues,
     });
   }
@@ -67,6 +68,7 @@ function inferStateFromBranch(repoRoot: string, branch: string): SoloState {
   return {
     mode: "solo",
     deliveryMode: "phase-pr",
+    reviewMode: "github-pr",
     phase,
     slug,
     branch: sprintBranchName(phase, slug),

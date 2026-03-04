@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AppConfig } from "../../types/contracts.js";
 import { runGh } from "../../adapters/gh.js";
@@ -96,10 +97,13 @@ export async function writeSoloKickoffPrompt(params: {
   slug: string;
   branch: string;
   deliveryMode?: "phase-pr" | "single-issue";
+  reviewMode?: "github-pr" | "local-agent";
   issues: IssuePayload[];
 }): Promise<string> {
   const dir = join(params.repoRoot, ".sessions", "solo");
   await mkdir(dir, { recursive: true });
+  const pmPromptFile = join(params.repoRoot, ".sessions", "pm", `next-phase-${params.phase}.md`);
+  const hasPmPrompt = await fileExists(pmPromptFile);
 
   const kickoffFile = join(dir, `kickoff-${params.phase}-${params.slug}.md`);
   const issueLines =
@@ -112,12 +116,17 @@ export async function writeSoloKickoffPrompt(params: {
     "",
     `Branch: ${params.branch}`,
     "",
+    "Read first:",
+    "- Read each linked issue body and extract exact acceptance criteria.",
+    ...(hasPmPrompt ? [`- Read PM planning context: ${pmPromptFile}`] : []),
+    "",
     "Sprint scope issues:",
     ...issueLines,
     "",
     "Operating model:",
     "- Single branch, no extra worktree.",
     `- Delivery mode: ${params.deliveryMode === "single-issue" ? "single-issue PR context" : "phase-pr (one PR, multiple issues)"}.`,
+    `- Review mode: ${params.reviewMode === "local-agent" ? "local-agent first (no PR on first finalize)" : "github-pr (standard PR flow)"}.`,
     "- Use skill guidance when available: `.claude/skills/agentic-solo-operator/SKILL.md`.",
     "- Sub-agent orchestration is allowed: delegate by issue or path group with non-overlapping file ownership.",
     "- If using sub-agents, assign one owner per issue/path and integrate sequentially on this branch.",
@@ -135,10 +144,24 @@ export async function writeSoloKickoffPrompt(params: {
     "2) Implement with tests.",
     "3) Run targeted checks.",
     "4) Checkpoint using: agentic solo checkpoint --summary ...",
-    "5) Finalize using: agentic solo finalize --done ...",
+    ...(params.reviewMode === "local-agent"
+      ? [
+          "5) Request local agent review using: agentic solo finalize --done ... (no commit/push/PR in local-agent mode)",
+          "6) After local review and fixes, publish PR using: agentic solo finalize --publish --done ...",
+        ]
+      : ["5) Finalize using: agentic solo finalize --done ..."]),
     "",
   ].join("\n");
 
   await writeFile(kickoffFile, body, "utf8");
   return kickoffFile;
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }

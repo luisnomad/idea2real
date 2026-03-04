@@ -6,6 +6,10 @@ import { authStub } from './middleware/auth.js'
 import { healthRoute, HealthResponseSchema } from './routes/health.js'
 import { type ErrorEnvelope } from './types/error-envelope.js'
 import { env } from './env.js'
+import { createGenerationModule } from './modules/generation/routes.js'
+import { createStubStorageAdapter } from './adapters/storage/index.js'
+import { createStubFalAdapter } from './adapters/fal/index.js'
+import { rateLimiter, bodyLimitGuard, jsonOnlyGuard } from './security/index.js'
 
 export function createApp() {
   const app = new OpenAPIHono<AppEnv>()
@@ -27,8 +31,16 @@ export function createApp() {
   // Swagger UI
   app.get('/ui', swaggerUI({ url: '/docs' }))
 
-  // All /api/* routes require auth
+  // Security middleware for /api/* routes
+  app.use('/api/*', rateLimiter({ windowMs: 60_000, maxRequests: 60 }))
+  app.use('/api/*', bodyLimitGuard)
+  app.use('/api/*', jsonOnlyGuard)
   app.use('/api/*', authStub)
+
+  // Generation module
+  const storage = createStubStorageAdapter()
+  const fal = createStubFalAdapter()
+  app.route('', createGenerationModule(storage, fal))
 
   // Global 404 — unknown routes return ErrorEnvelope
   app.notFound((c) => {

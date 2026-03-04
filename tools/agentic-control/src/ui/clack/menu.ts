@@ -57,7 +57,7 @@ const SOLO_ACTIONS: Array<{ value: ActionValue; label: string }> = [
   { value: "solo:resume", label: "Solo / Resume single-agent sprint" },
   { value: "solo:add-issues", label: "Solo / Add more issues to active sprint" },
   { value: "solo:checkpoint", label: "Solo / Checkpoint sprint progress" },
-  { value: "solo:finalize", label: "Solo / Finalize sprint PR-ready" },
+  { value: "solo:finalize", label: "Solo / Finalize sprint (local review or PR publish)" },
   { value: "pr:loop", label: "PR / Feedback loop (checks, reviews, conflicts)" },
   { value: "pr:merge", label: "PR / Merge and cleanup" },
   { value: "pm:next", label: "PM / Generate next-phase prompt (standardized slices)" },

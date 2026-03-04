@@ -48,6 +48,20 @@ services:
       timeout: 5s
       retries: 20
 
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        mc alias set local http://minio:9000 minioadmin minioadmin &&
+        mc mb --ignore-existing local/idea2real-assets &&
+        mc anonymous set download local/idea2real-assets &&
+        echo 'Bucket idea2real-assets ready'
+      "
+    restart: "no"
+
   lint:
     image: python:3.11-slim
     working_dir: /workspace
