@@ -165,7 +165,7 @@ def run_provider(provider_id: str, image_paths: list[str], output_dir: str) -> d
         else:
             mesh_path = None
             size_bytes = 0
-            print(f"  Warning: No mesh URL found in result")
+            print("  Warning: No mesh URL found in result")
             # Save raw result for debugging
             with open(os.path.join(provider_dir, "raw_result.json"), "w") as f:
                 json.dump(result, f, indent=2)
