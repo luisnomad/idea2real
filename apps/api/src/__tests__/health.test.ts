@@ -26,12 +26,61 @@ describe('GET /health', () => {
   })
 
   it('exposes OpenAPI spec at /docs', async () => {
-    const app = createApp()
-    const res = await app.request('/docs')
-    expect(res.status).toBe(200)
-    const spec = await res.json()
-    expect(spec.openapi).toBe('3.0.0')
-    expect(spec.info.title).toBeTruthy()
+    const originalNodeEnv = process.env['NODE_ENV']
+    const originalExpose = process.env['EXPOSE_API_DOCS']
+    try {
+      process.env['NODE_ENV'] = 'test'
+      delete process.env['EXPOSE_API_DOCS']
+      const app = createApp()
+      const res = await app.request('/docs')
+      expect(res.status).toBe(200)
+      const spec = await res.json()
+      expect(spec.openapi).toBe('3.0.0')
+      expect(spec.info.title).toBeTruthy()
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env['NODE_ENV']
+      else process.env['NODE_ENV'] = originalNodeEnv
+      if (originalExpose === undefined) delete process.env['EXPOSE_API_DOCS']
+      else process.env['EXPOSE_API_DOCS'] = originalExpose
+    }
+  })
+
+  it('hides docs in production by default', async () => {
+    const originalNodeEnv = process.env['NODE_ENV']
+    const originalExpose = process.env['EXPOSE_API_DOCS']
+    try {
+      process.env['NODE_ENV'] = 'production'
+      delete process.env['EXPOSE_API_DOCS']
+
+      const app = createApp()
+      const docsRes = await app.request('/docs')
+      const uiRes = await app.request('/ui')
+      expect(docsRes.status).toBe(404)
+      expect(uiRes.status).toBe(404)
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env['NODE_ENV']
+      else process.env['NODE_ENV'] = originalNodeEnv
+      if (originalExpose === undefined) delete process.env['EXPOSE_API_DOCS']
+      else process.env['EXPOSE_API_DOCS'] = originalExpose
+    }
+  })
+
+  it('allows docs in production when explicitly enabled', async () => {
+    const originalNodeEnv = process.env['NODE_ENV']
+    const originalExpose = process.env['EXPOSE_API_DOCS']
+    try {
+      process.env['NODE_ENV'] = 'production'
+      process.env['EXPOSE_API_DOCS'] = 'true'
+
+      const app = createApp()
+      const docsRes = await app.request('/docs')
+      expect(docsRes.status).toBe(200)
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env['NODE_ENV']
+      else process.env['NODE_ENV'] = originalNodeEnv
+      if (originalExpose === undefined) delete process.env['EXPOSE_API_DOCS']
+      else process.env['EXPOSE_API_DOCS'] = originalExpose
+    }
   })
 })
 

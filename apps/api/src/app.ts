@@ -13,6 +13,8 @@ import { rateLimiter, bodyLimitGuard, jsonOnlyGuard } from './security/index.js'
 
 export function createApp() {
   const app = new OpenAPIHono<AppEnv>()
+  const isProduction = process.env['NODE_ENV'] === 'production'
+  const exposeApiDocs = process.env['EXPOSE_API_DOCS'] === 'true' || !isProduction
 
   app.use('*', requestId)
   app.use('*', requestLogger)
@@ -22,14 +24,16 @@ export function createApp() {
     return c.json(HealthResponseSchema.parse({ status: 'ok', version: env.VERSION }))
   })
 
-  // OpenAPI JSON spec
-  app.doc('/docs', {
-    openapi: '3.0.0',
-    info: { title: 'idea2real API', version: env.VERSION },
-  })
+  if (exposeApiDocs) {
+    // OpenAPI JSON spec
+    app.doc('/docs', {
+      openapi: '3.0.0',
+      info: { title: 'idea2real API', version: env.VERSION },
+    })
 
-  // Swagger UI
-  app.get('/ui', swaggerUI({ url: '/docs' }))
+    // Swagger UI
+    app.get('/ui', swaggerUI({ url: '/docs' }))
+  }
 
   // Security middleware for /api/* routes
   app.use('/api/*', rateLimiter({ windowMs: 60_000, maxRequests: 60 }))

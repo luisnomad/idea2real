@@ -3,6 +3,7 @@ import { createMiddleware } from 'hono/factory'
 export type AppEnv = {
   Variables: {
     requestId: string
+    userId: string
   }
 }
 

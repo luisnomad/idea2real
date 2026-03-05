@@ -23,8 +23,6 @@ const ErrorResponseSchema = z.object({
   }),
 })
 
-const STUB_USER_ID = '11111111-1111-4111-8111-111111111111'
-
 const presignRoute = createRoute({
   method: 'post',
   path: '/api/uploads/presign',
@@ -208,7 +206,7 @@ export function createGenerationModule(
 
       assetStore.set(modelAssetId, {
         id: modelAssetId,
-        userId: STUB_USER_ID,
+        userId: latestGeneration.userId,
         kind: 'model_source',
         mimeType,
         storageKey,
@@ -257,6 +255,7 @@ export function createGenerationModule(
 
   // POST /api/uploads/presign
   router.openapi(presignRoute, async (c) => {
+    const userId = c.get('userId')
     const body = c.req.valid('json')
     const assetId = crypto.randomUUID()
     const storageKey = `uploads/${assetId}/${body.fileName}`
@@ -266,7 +265,7 @@ export function createGenerationModule(
     const now = new Date().toISOString()
     assetStore.set(assetId, {
       id: assetId,
-      userId: STUB_USER_ID,
+      userId,
       kind: 'reference_image',
       mimeType: body.mimeType,
       storageKey: presigned.storageKey,
@@ -284,9 +283,10 @@ export function createGenerationModule(
 
   // POST /api/generations
   router.openapi(createGenerationRoute, async (c) => {
+    const userId = c.get('userId')
     const body = c.req.valid('json')
     const asset = assetStore.get(body.imageAssetId)
-    if (!asset) {
+    if (!asset || asset.userId !== userId) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Image asset not found' } }, 404)
     }
 
@@ -303,7 +303,7 @@ export function createGenerationModule(
     generationStore.set(generationId, {
       id: generationId,
       promptId: crypto.randomUUID(),
-      userId: STUB_USER_ID,
+      userId,
       status: 'queued',
       provider: body.provider,
       providerJobId: submission.providerJobId,
@@ -314,7 +314,7 @@ export function createGenerationModule(
 
     jobStore.set(jobId, {
       id: jobId,
-      userId: STUB_USER_ID,
+      userId,
       type: 'model_generation',
       status: 'queued',
       payload: { generationId, imageAssetId: body.imageAssetId, providerJobId: submission.providerJobId },
@@ -331,15 +331,16 @@ export function createGenerationModule(
 
   // GET /api/generations/:id
   router.openapi(getGenerationRoute, async (c) => {
+    const userId = c.get('userId')
     const { id } = c.req.valid('param')
     const gen = generationStore.get(id)
-    if (!gen) {
+    if (!gen || gen.userId !== userId) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Generation not found' } }, 404)
     }
     await syncGenerationState(id)
 
     const latest = generationStore.get(id)
-    if (!latest) {
+    if (!latest || latest.userId !== userId) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Generation not found' } }, 404)
     }
 
@@ -368,9 +369,11 @@ export function createGenerationModule(
 
   // GET /api/generations
   router.openapi(listGenerationsRoute, async (c) => {
+    const userId = c.get('userId')
     const { limit, status } = c.req.valid('query')
-    await Promise.all(generationStore.list().map((generation) => syncGenerationState(generation.id)))
-    let items = generationStore.list()
+    const userGenerations = generationStore.list().filter((generation) => generation.userId === userId)
+    await Promise.all(userGenerations.map((generation) => syncGenerationState(generation.id)))
+    let items = generationStore.list().filter((generation) => generation.userId === userId)
     if (status) items = items.filter((g) => g.status === status)
     items = items.slice(0, limit)
 
@@ -382,9 +385,10 @@ export function createGenerationModule(
 
   // GET /api/jobs/:id
   router.openapi(getJobRoute, async (c) => {
+    const userId = c.get('userId')
     const { id } = c.req.valid('param')
     const job = jobStore.get(id)
-    if (!job) {
+    if (!job || job.userId !== userId) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404)
     }
     const generationId = typeof job.payload.generationId === 'string'
@@ -395,7 +399,7 @@ export function createGenerationModule(
     }
 
     const latest = jobStore.get(id)
-    if (!latest) {
+    if (!latest || latest.userId !== userId) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404)
     }
 
@@ -404,9 +408,10 @@ export function createGenerationModule(
 
   // GET /api/assets/:id/download
   router.openapi(downloadRoute, async (c) => {
+    const userId = c.get('userId')
     const { id } = c.req.valid('param')
     const asset = assetStore.get(id)
-    if (!asset) {
+    if (!asset || asset.userId !== userId) {
       return c.json({ error: { code: 'NOT_FOUND', message: 'Asset not found' } }, 404)
     }
 
