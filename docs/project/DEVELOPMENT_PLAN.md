@@ -28,6 +28,7 @@ The web app should be meaningfully better than a thin Hunyuan wrapper by combini
 
 UI implementation reference: `FRONTEND_UI_DIRECTION.md`.
 Security baseline reference: `SECURITY_BASELINE.md`.
+Security implementation reference: `SECURITY_CONTINUATION_GUIDE.md`.
 
 ## Cross-Phase Security Track
 

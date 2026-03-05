@@ -4,6 +4,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.schemas import (
@@ -23,6 +24,34 @@ app = FastAPI(
 MAX_UPLOAD_BYTES = int(os.getenv("GEOMETRY_MAX_UPLOAD_BYTES", str(10 * 1024 * 1024)))
 UPLOAD_CHUNK_BYTES = 64 * 1024
 ALLOWED_MESH_TYPES = {"glb", "gltf", "stl", "obj", "ply"}
+DEFAULT_CORS_ALLOWLIST = ["http://localhost:5173", "http://127.0.0.1:5173"]
+SECURITY_HEADERS = {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer",
+    "content-security-policy": os.getenv(
+        "GEOMETRY_CONTENT_SECURITY_POLICY",
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    ),
+}
+
+
+def _parse_csv(raw: str | None, fallback: list[str]) -> list[str]:
+    if raw is None or not raw.strip():
+        return fallback
+    values = [item.strip() for item in raw.split(",") if item.strip()]
+    return values if values else fallback
+
+
+cors_allowlist = _parse_csv(os.getenv("GEOMETRY_CORS_ALLOWLIST"), DEFAULT_CORS_ALLOWLIST)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_allowlist,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
+    max_age=600,
+)
 
 
 def _request_id(request: Request) -> str:
@@ -152,6 +181,9 @@ async def add_request_id(request: Request, call_next: RequestResponseEndpoint) -
     request.state.request_id = request_id
     response: Response = await call_next(request)
     response.headers["x-request-id"] = request_id
+    for header_name, header_value in SECURITY_HEADERS.items():
+        if header_name not in response.headers:
+            response.headers[header_name] = header_value
     return response
 
 

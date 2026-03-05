@@ -18,6 +18,10 @@ This baseline is designed for the current stack:
 - Data/services: PostgreSQL, Redis, S3-compatible storage.
 - AI providers: fal.ai, OpenRouter.
 
+Implementation reference:
+
+- `docs/project/SECURITY_CONTINUATION_GUIDE.md` (enforced controls and secure-change rules)
+
 ## Threat Model (High-Level)
 
 Primary attack surfaces:

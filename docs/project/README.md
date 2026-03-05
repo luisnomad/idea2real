@@ -8,6 +8,7 @@ This folder tracks the web product roadmap and implementation guidance for idea2
 - `FRONTEND_UI_DIRECTION.md`: UI direction and component guidance.
 - `MEANINGFUL_TDD_PLAYBOOK.md`: behavior-first testing workflow.
 - `SECURITY_BASELINE.md`: production security controls and defaults.
+- `SECURITY_CONTINUATION_GUIDE.md`: implemented controls and mandatory secure-change workflow.
 
 ## Scope Summary
 

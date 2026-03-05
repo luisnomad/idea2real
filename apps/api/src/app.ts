@@ -9,7 +9,7 @@ import { env } from './env.js'
 import { createGenerationModule } from './modules/generation/routes.js'
 import { createStubStorageAdapter } from './adapters/storage/index.js'
 import { createStubFalAdapter } from './adapters/fal/index.js'
-import { rateLimiter, bodyLimitGuard, jsonOnlyGuard } from './security/index.js'
+import { rateLimiter, bodyLimitGuard, jsonOnlyGuard, corsAllowlist, responseSecurityHeaders } from './security/index.js'
 
 export function createApp() {
   const app = new OpenAPIHono<AppEnv>()
@@ -18,6 +18,8 @@ export function createApp() {
 
   app.use('*', requestId)
   app.use('*', requestLogger)
+  app.use('*', responseSecurityHeaders)
+  app.use('*', corsAllowlist)
 
   // Public endpoint — no auth
   app.openapi(healthRoute, (c) => {

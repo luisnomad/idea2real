@@ -16,6 +16,7 @@ Image -> Hunyuan3D -> cleanup -> STL export.
 - `docs/project/DEVELOPMENT_PLAN.md`
 - `docs/project/FRONTEND_UI_DIRECTION.md`
 - `docs/project/SECURITY_BASELINE.md`
+- `docs/project/SECURITY_CONTINUATION_GUIDE.md`
 - `CONTRIBUTING.md`
 - `.claude/skills/github-project-execution/SKILL.md`
 
@@ -26,6 +27,7 @@ Image -> Hunyuan3D -> cleanup -> STL export.
 - Prefer small, reviewable commits.
 - Keep TypeScript strict and avoid `any`.
 - Use Python type hints in Python code.
+- Follow `docs/project/SECURITY_CONTINUATION_GUIDE.md` for all endpoint/auth/upload changes.
 
 ## Planning and Tracking (Required)
 

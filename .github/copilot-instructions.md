@@ -7,6 +7,7 @@ You are working on idea2real, a platform for turning images into 3D-printable mo
 - `README.md` for project scope
 - `docs/ARCHITECTURE.md` for architectural constraints
 - `docs/project/DEVELOPMENT_PLAN.md` for roadmap context
+- `docs/project/SECURITY_CONTINUATION_GUIDE.md` for mandatory security controls and workflow
 - `CONTRIBUTING.md` for contribution rules
 - `.claude/skills/github-project-execution/SKILL.md` for planning/issues/project-board workflow
 
@@ -16,6 +17,7 @@ You are working on idea2real, a platform for turning images into 3D-printable mo
 - Add tests for non-trivial logic or regressions.
 - Prefer contract-first updates for shared API boundaries.
 - Avoid adding dependencies without clear justification.
+- For endpoint/auth/upload changes, follow `docs/project/SECURITY_CONTINUATION_GUIDE.md` and keep secure defaults.
 - For planning and task-tracking work: keep strategy in Markdown, execution in GitHub Issues + Project columns.
 - When creating/updating issues, include dependencies, paths touched, behavior contract, test plan, and definition of done.
 - Move every touched issue to the correct project status column.

@@ -33,6 +33,11 @@ function parseApiKeyMap() {
 }
 
 export const authStub = createMiddleware<AppEnv>(async (c, next) => {
+  if (c.req.method === 'OPTIONS') {
+    await next()
+    return
+  }
+
   const keyMap = parseApiKeyMap()
   const configuredKeys = keyMap.size > 0
 
