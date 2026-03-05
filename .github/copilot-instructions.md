@@ -1,32 +1,35 @@
 # GitHub Copilot Instructions for idea2real
 
-You are working on idea2real, a web platform for 3D-printer users to convert images into printable STL models.
+You are working on idea2real, a platform for turning images into 3D-printable models.
 
 ## Read First
 
-- `AGENTS.md` in the repo root — contains all rules for agent behavior, ownership boundaries, branch naming, and TDD workflow.
-- `docs/project/DEVELOPMENT_PLAN.md` — full phase roadmap.
-- `docs/project/FRONTEND_UI_DIRECTION.md` — UI specs if working on frontend.
+- `README.md` for project scope
+- `docs/ARCHITECTURE.md` for architectural constraints
+- `docs/project/DEVELOPMENT_PLAN.md` for roadmap context
+- `CONTRIBUTING.md` for contribution rules
+- `.claude/skills/github-project-execution/SKILL.md` for planning/issues/project-board workflow
 
 ## Quick Rules
 
-- Follow ownership boundaries: only touch paths assigned to your slice.
-- Branch naming: `codex/<phase>-<slice>-<short-topic>`.
-- Commits: conventional style prefixed with slice ID.
-- Every change needs a behavior contract and test.
-- Contracts in `packages/contracts` are defined before implementation.
-- PRs under 500 lines, include behavior contract and risk note.
+- Keep changes scoped to the requested behavior.
+- Add tests for non-trivial logic or regressions.
+- Prefer contract-first updates for shared API boundaries.
+- Avoid adding dependencies without clear justification.
+- For planning and task-tracking work: keep strategy in Markdown, execution in GitHub Issues + Project columns.
+- When creating/updating issues, include dependencies, paths touched, behavior contract, test plan, and definition of done.
+- Move every touched issue to the correct project status column.
 
 ## Stack
 
-- Frontend: React 19, TypeScript, Vite, Tailwind v4, shadcn/ui, React Three Fiber
-- API: Hono, Drizzle ORM, PostgreSQL, BullMQ
-- Geometry: FastAPI, trimesh, pymeshlab
-- Contracts: Zod schemas with generated types
+- Frontend: React + TypeScript + Vite
+- API: Hono + TypeScript
+- Geometry: FastAPI + Python
+- Contracts: Zod schemas + shared TS types
 
 ## Style
 
 - TypeScript strict, no `any`
-- Python with type hints, ruff formatting
-- Behavior-descriptive test names
-- Minimal abstractions, no over-engineering
+- Python with type hints
+- Behavior-focused tests
+- Avoid unnecessary abstractions

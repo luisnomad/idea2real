@@ -174,7 +174,7 @@ A production release is blocked unless:
 ## Ownership Model
 
 - Security owner (human): approves policy and production exceptions.
-- Domain owners: implement controls in their slices.
+- Domain owners: implement controls in their service domains.
 - PM/ops pass: weekly security status review in GitHub Project.
 
 ## Known Principle

@@ -25,10 +25,8 @@ The web app should be meaningfully better than a thin Hunyuan wrapper by combini
 - Every non-trivial change ships with a failing test first, then minimal implementation.
 - API contracts are versioned and typed before parallel implementation starts.
 - Done means tested behavior, not just merged code.
-- Execution mode is local-first: parallel Codex/Claude sessions with git worktrees.
 
 UI implementation reference: `FRONTEND_UI_DIRECTION.md`.
-Local execution reference: `LOCAL_PARALLEL_WORKFLOW.md`.
 Security baseline reference: `SECURITY_BASELINE.md`.
 
 ## Cross-Phase Security Track
@@ -62,12 +60,12 @@ Checklist:
 - [ ] Set up CI for lint, typecheck, unit tests, and contract checks.
 - [ ] Add baseline telemetry (request IDs, structured logs, error capture).
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: Frontend shell + design tokens + routing skeleton.
-- Agent B: Hono API skeleton + OpenAPI generation.
-- Agent C: FastAPI skeleton + geometry contract stubs.
-- Agent D: Infra baseline (`docker-compose`, CI, local dev scripts).
+- Track A: Frontend shell + design tokens + routing skeleton.
+- Track B: Hono API skeleton + OpenAPI generation.
+- Track C: FastAPI skeleton + geometry contract stubs.
+- Track D: Infra baseline (`docker-compose`, CI, local dev scripts).
 
 ### Phase 1 - End-to-End MVP (Image to Printable STL)
 
@@ -88,12 +86,12 @@ Checklist:
 - [ ] Add downloadable artifacts (source image, GLB, STL).
 - [ ] Add retry and failure diagnostics for failed jobs.
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: Upload + generation UI + job polling UX.
-- Agent B: Job orchestration, fal.ai adapter, persistence.
-- Agent C: Geometry cleanup API + artifact outputs.
-- Agent D: Viewer integration and model asset delivery.
+- Track A: Upload + generation UI + job polling UX.
+- Track B: Job orchestration, fal.ai adapter, persistence.
+- Track C: Geometry cleanup API + artifact outputs.
+- Track D: Viewer integration and model asset delivery.
 
 ### Phase 2 - Prompt Studio and Nano Banana History
 
@@ -111,12 +109,12 @@ Checklist:
 - [ ] Add token/cost usage tracking per generation provider.
 - [ ] Add prompt-injection safeguards for prompt improvement and generation handoffs.
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: Prompt Studio UX + history screens.
-- Agent B: OpenRouter adapter + prompt improvement service.
-- Agent C: Nano Banana provider + storage + metadata.
-- Agent D: Cost telemetry and provider abstraction layer.
+- Track A: Prompt Studio UX + history screens.
+- Track B: OpenRouter adapter + prompt improvement service.
+- Track C: Nano Banana provider + storage + metadata.
+- Track D: Cost telemetry and provider abstraction layer.
 
 ### Phase 3 - Model Library and Gallery
 
@@ -132,12 +130,12 @@ Checklist:
 - [ ] Improve viewer controls (lighting presets, wireframe, dimension overlay).
 - [ ] Implement lifecycle states (`draft`, `ready-to-print`, `archived`).
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: Gallery and card/grid/list UI.
-- Agent B: Metadata and search endpoints.
-- Agent C: Viewer feature upgrades.
-- Agent D: Sharing/access control hooks.
+- Track A: Gallery and card/grid/list UI.
+- Track B: Metadata and search endpoints.
+- Track C: Viewer feature upgrades.
+- Track D: Sharing/access control hooks.
 
 ### Phase 4 - Print Prep Advanced Features
 
@@ -153,12 +151,12 @@ Checklist:
 - [ ] Add pre-export confidence score with actionable warnings.
 - [ ] Add regression corpus of representative models for geometry pipeline tests.
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: Print prep UI + presets.
-- Agent B: Geometry processing implementations.
-- Agent C: Validation and scoring logic.
-- Agent D: Regression dataset and automated verification harness.
+- Track A: Print prep UI + presets.
+- Track B: Geometry processing implementations.
+- Track C: Validation and scoring logic.
+- Track D: Regression dataset and automated verification harness.
 
 ### Phase 5 - Production Hardening on Cheap VPS
 
@@ -176,12 +174,12 @@ Checklist:
 - [ ] Add deployment recipe for single VPS (`api`, `web`, `geometry`, `redis`, `postgres`, `reverse-proxy`).
 - [ ] Add runbooks for common incidents.
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: Auth/rate-limit/security middleware.
-- Agent B: Queue resilience and failure recovery.
-- Agent C: VPS deployment IaC and observability.
-- Agent D: Backup/restore scripts and drills.
+- Track A: Auth/rate-limit/security middleware.
+- Track B: Queue resilience and failure recovery.
+- Track C: VPS deployment IaC and observability.
+- Track D: Backup/restore scripts and drills.
 
 ### Phase 6 - Ecosystem Expansion (Poly Haven + Sketchfab + Mixamo R&D)
 
@@ -201,12 +199,12 @@ Checklist:
 - [ ] Mixamo spike output: evaluate auto-rig success rate and failure causes.
 - [ ] Publish product decision: keep as beta module or leave as expert feature.
 
-Parallel slices:
+Suggested implementation tracks:
 
-- Agent A: External source UI and import UX.
-- Agent B: Provider connectors and metadata ingestion.
-- Agent C: License/provenance policy enforcement.
-- Agent D: Mixamo R&D branch and technical report.
+- Track A: External source UI and import UX.
+- Track B: Provider connectors and metadata ingestion.
+- Track C: License/provenance policy enforcement.
+- Track D: Mixamo R&D branch and technical report.
 
 ## Suggested Milestone Sequence
 

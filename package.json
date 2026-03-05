@@ -6,25 +6,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "agentic": "pnpm --dir tools/agentic-control start",
-    "a": "pnpm --dir tools/agentic-control start",
-    "a:continue": "pnpm --dir tools/agentic-control start continue",
-    "a:start": "pnpm --dir tools/agentic-control start session start",
-    "a:resume": "pnpm --dir tools/agentic-control start session resume",
-    "a:solo-start": "pnpm --dir tools/agentic-control start solo start",
-    "a:solo-resume": "pnpm --dir tools/agentic-control start solo resume",
-    "a:solo-add": "pnpm --dir tools/agentic-control start solo add-issues",
-    "a:solo-checkpoint": "pnpm --dir tools/agentic-control start solo checkpoint",
-    "a:solo-finalize": "pnpm --dir tools/agentic-control start solo finalize",
-    "a:done": "pnpm --dir tools/agentic-control start slice finalize",
-    "a:loop": "pnpm --dir tools/agentic-control start pr loop",
-    "a:merge": "pnpm --dir tools/agentic-control start pr merge",
-    "a:clean": "pnpm --dir tools/agentic-control start cleanup worktree",
-    "a:pm": "pnpm --dir tools/agentic-control start pm seed-issues",
-    "a:pm-next": "pnpm --dir tools/agentic-control start pm next-phase",
-    "a:doctor": "pnpm --dir tools/agentic-control start doctor --quick",
-    "agentic:dist": "node tools/agentic-control/dist/cli.js",
-    "agentic:build": "pnpm --dir tools/agentic-control build",
-    "agentic:test": "pnpm --dir tools/agentic-control test"
+    "dev:web": "pnpm --filter @idea2real/web dev",
+    "dev:api": "pnpm --filter @idea2real/api dev",
+    "test": "pnpm -r test",
+    "test:web": "pnpm --filter @idea2real/web test",
+    "test:api": "pnpm --filter @idea2real/api test",
+    "test:contracts": "pnpm --filter @idea2real/contracts test",
+    "build:web": "pnpm --filter @idea2real/web build",
+    "typecheck:api": "pnpm --filter @idea2real/api typecheck",
+    "typecheck:contracts": "pnpm --filter @idea2real/contracts typecheck"
   }
 }

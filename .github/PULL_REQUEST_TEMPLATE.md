@@ -1,33 +1,29 @@
-## Slice
+## Summary
 
-<!-- e.g., P0-WEB-1 -->
+<!-- What changed and why -->
 
 ## Behavior Contract
 
-```
+```text
 Given <starting state>
-When <user action or system event>
-Then <user-visible outcome>
-And <negative/boundary expectation>
+When <action or event>
+Then <expected user-visible outcome>
+And <boundary/negative expectation>
 ```
-
-## Changes
-
-<!-- Bullet list of what changed and why -->
 
 ## Risk Note
 
-<!-- What could go wrong? What should reviewers watch for? -->
+<!-- Main risks and what reviewers should verify -->
 
 ## Test Plan
 
-- [ ] New tests added/updated
-- [ ] All tests passing locally
-- [ ] Contract tests pass (if touching shared schemas)
+- [ ] New/updated tests cover behavior changes
+- [ ] Relevant local tests pass
+- [ ] Contract tests pass (if shared schemas changed)
 
 ## Checklist
 
-- [ ] Paths touched are within my slice's ownership
-- [ ] No lockfile changes (unless I'm the infra slice owner)
-- [ ] No new dependencies without justification
-- [ ] Commit messages follow convention: `type(SLICE-ID): description`
+- [ ] Scope is focused and intentional
+- [ ] No unrelated files changed
+- [ ] New dependencies are justified in PR description
+- [ ] Docs updated when behavior or setup changed
